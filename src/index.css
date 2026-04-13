@@ -431,32 +431,73 @@ th {
   height: 100vh;
   width: 100vw;
   display: flex;
-  align-items: center;
-  justify-content: center;
   background-color: #0f172a;
+}
+
+.login-left {
+  flex: 1;
   background-image: url('https://images.unsplash.com/photo-1586528116311-ad8ed7c80a30?auto=format&fit=crop&w=1920&q=80');
   background-size: cover;
   background-position: center;
   position: relative;
+  display: none;
 }
-.login-container::after {
+
+@media (min-width: 768px) {
+  .login-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem;
+  }
+}
+
+.login-left::after {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 23, 42, 0.85);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(59, 130, 246, 0.8) 100%);
   z-index: 1;
 }
 
-.login-card {
+.login-left-content {
+  position: relative;
+  z-index: 2;
+  color: white;
+  animation: slideRightFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.login-left-content h1 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+}
+
+.login-left-content p {
+  font-size: 1.25rem;
+  opacity: 0.9;
+  max-width: 480px;
+}
+
+.login-right {
+  flex: 1;
+  max-width: 550px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
   position: relative;
   z-index: 10;
-  background: #ffffff;
-  border-radius: 12px;
+  box-shadow: -20px 0 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.login-card {
   width: 100%;
-  max-width: 440px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
   display: flex;
   flex-direction: column;
+  animation: slideLeftFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .login-content {
@@ -662,6 +703,16 @@ th {
 @keyframes slideUpFade {
   0% { opacity: 0; transform: translateY(40px) scale(0.95); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideRightFade {
+  0% { opacity: 0; transform: translateX(-40px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideLeftFade {
+  0% { opacity: 0; transform: translateX(40px); }
+  100% { opacity: 1; transform: translateX(0); }
 }
 
 /* Modal and Plugins */

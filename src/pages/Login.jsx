@@ -12,9 +12,6 @@ import { ref, get, child, set } from 'firebase/database';
  * @param {Function} props.onLogin - Función que se ejecuta tras un inicio de sesión exitoso; recibe el rol del usuario como argumento.
  */
 export default function Login({ onLogin }) {
-  // Estado para guardar el rol actualmente seleccionado ('supervisor_ruta', 'supervisor_entrada' o 'conductor')
-  const [activeRole, setActiveRole] = useState('supervisor_ruta');
-  
   // Estado para los campos del formulario
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -67,16 +64,9 @@ export default function Login({ onLogin }) {
         setLoading(false);
         return;
       }
-      
-      // Validación 3: ¿El rol seleccionado coincide con el rol del usuario en la base de datos?
-      if (userRecord.role !== activeRole) {
-        setErrorMsg(`Este usuario no tiene permisos de ${activeRole}`);
-        setLoading(false);
-        return;
-      }
 
-      // Login exitoso: Notificamos a la aplicación (App.jsx) sobre el nuevo rol activo
-      onLogin(activeRole);
+      // Login exitoso: Notificamos a la aplicación (App.jsx) sobre el rol detectado en la DB
+      onLogin(userRecord.role);
       
       // Redirigimos a la raíz (Dashboard) que ahora mostrará la vista correspondiente al rol
       navigate('/');
@@ -89,52 +79,45 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="login-container">
-      <div className="login-card animate-slide-up">
-        
-        <div className="login-content">
-          {/* Logo / Icono superior */}
-          <div className="login-top-icon">
-            <Truck size={36} color="white" />
-          </div>
-          <h2 className="login-title">FREIGHT SENTINEL</h2>
-          <p className="login-subtitle">Selecciona tu rol operativo para acceder</p>
+      {/* Panel Izquierdo (Imagen Dinámica) */}
+      <div className="login-left">
+        <div className="login-left-content">
+          <h1>Tu Viaje Seguro</h1>
+          <p>Plataforma integral de gestión de flotas, monitoreo de GPS en tiempo real y asignación de rutas y accesos.</p>
+        </div>
+      </div>
 
-          {/* --- SELECTOR DE ROLES --- */}
-          <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Seleccionar Rol de Ingreso</label>
-            <select 
-              className="login-input"
-              value={activeRole}
-              onChange={(e) => setActiveRole(e.target.value)}
-              style={{ appearance: 'auto', padding: '0.75rem', width: '100%', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius-md)' }}
-            >
-              <option value="supervisor_ruta" style={{ color: 'black' }}>Supervisión y Rutas (Admin)</option>
-              <option value="supervisor_entrada" style={{ color: 'black' }}>Supervisión de Entrada</option>
-              <option value="conductor" style={{ color: 'black' }}>Chofer Conductor</option>
-            </select>
-          </div>
-
-          {/* --- FORMULARIO DE INGRESO --- */}
-          <form onSubmit={handleLogin}>
-            {/* Campo: Nombre de Usuario */}
-            <div className="login-input-group">
-              <div className="login-label">
-                <span>Nombre de Usuario</span>
-              </div>
-              <div className="login-input-wrapper">
-                <div className="login-input-icon">
-                  <User size={18} />
-                </div>
-                <input 
-                  type="text" 
-                  className="login-input"
-                  placeholder="ID de Operador (ej: admin)"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-              </div>
+      {/* Panel Derecho (Formulario) */}
+      <div className="login-right">
+        <div className="login-card">
+          <div className="login-content">
+            <div className="login-top-icon">
+              <Truck size={36} color="white" />
             </div>
+            <h2 className="login-title">FREIGHT SENTINEL</h2>
+            <p className="login-subtitle">Ingresa tus credenciales para acceder a la terminal</p>
+
+            {/* --- FORMULARIO DE INGRESO --- */}
+            <form onSubmit={handleLogin}>
+              {/* Campo: Nombre de Usuario */}
+              <div className="login-input-group">
+                <div className="login-label">
+                  <span>Nombre de Usuario</span>
+                </div>
+                <div className="login-input-wrapper">
+                  <div className="login-input-icon">
+                    <User size={18} />
+                  </div>
+                  <input 
+                    type="text" 
+                    className="login-input"
+                    placeholder="ID de Operador (ej: admin)"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
 
             {/* Campo: Contraseña (Token de Seguridad) */}
             <div className="login-input-group">
@@ -182,21 +165,21 @@ export default function Login({ onLogin }) {
           </form>
         </div>
 
-        {/* Información de la parte inferior de la tarjeta de login */}
         <div className="login-bottom-bar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></div>
-            SISTEMA OPERATIVO
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#334155' }}>
-            <ShieldCheck size={14} />
-            AES-256 ENCRYPTED
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></div>
+              SISTEMA OPERATIVO
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#334155' }}>
+              <ShieldCheck size={14} />
+              AES-256 ENCRYPTED
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="login-footer-text">
-        OPERANDO BAJO ESTÁNDARES DE SEGURIDAD ISO 27001
+        <div className="login-footer-text">
+          OPERANDO BAJO ESTÁNDARES ISO 27001
+        </div>
       </div>
     </div>
   );
