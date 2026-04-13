@@ -138,6 +138,12 @@ export default function MapaGPS() {
     );
   };
 
+  // Auto-localizar al montar la vista
+  useEffect(() => {
+    locateUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="animate-fade-in">
       <div className="header-title" style={{ marginBottom: '2rem' }}>

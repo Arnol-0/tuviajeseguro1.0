@@ -72,6 +72,14 @@ export default function RegistroViaje() {
       }
     };
     fetchDrivers();
+
+    // Auto-centrar mapa en la ubicación física del dispositivo (sin fijar pin obligatoriamente)
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setMapCenter([pos.coords.latitude, pos.coords.longitude]),
+        () => console.warn('Denegada la auto-localización. Usando default.')
+      );
+    }
   }, []);
 
   const handleSubmit = async (e) => {
