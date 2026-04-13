@@ -52,28 +52,43 @@ export default function MapaGPS() {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTrucks, setActiveTrucks] = useState([]);
+  const [fleetStatus, setFleetStatus] = useState([]);
 
   // Leer posiciones en tiempo real desde Firebase
   useEffect(() => {
     const usersRef = ref(database, 'users');
     const unsubscribe = onValue(usersRef, (snapshot) => {
       const trucks = [];
+      const fleet = [];
       if (snapshot.exists()) {
         const usersObj = snapshot.val();
         for (let key in usersObj) {
           const user = usersObj[key];
-          // Solo cargar camiones que estén transmitiendo ubicación
-          if (user.role === 'conductor' && user.location) {
-            trucks.push({
-              driver: key.toUpperCase(),
-              position: [user.location.lat, user.location.lng],
-              destination: user.currentTrip ? user.currentTrip.destination : 'Sin ruta',
-              cargo: user.currentTrip ? user.currentTrip.cargo : 'N/A'
-            });
+          if (user.role === 'conductor') {
+            
+            // Llenar panel de estado de flota si tienen ruta asignada
+            if (user.currentTrip) {
+               fleet.push({
+                 driver: key,
+                 dest: user.currentTrip.destination,
+                 isDriving: !!user.location
+               });
+            }
+
+            // Solo cargar al mapa los camiones que estén transmitiendo ubicación
+            if (user.location) {
+              trucks.push({
+                driver: key.toUpperCase(),
+                position: [user.location.lat, user.location.lng],
+                destination: user.currentTrip ? user.currentTrip.destination : 'Sin ruta',
+                cargo: user.currentTrip ? user.currentTrip.cargo : 'N/A'
+              });
+            }
           }
         }
       }
       setActiveTrucks(trucks);
+      setFleetStatus(fleet);
     });
 
     return () => unsubscribe();
@@ -108,9 +123,30 @@ export default function MapaGPS() {
   return (
     <div className="animate-fade-in">
       <div className="header-title" style={{ marginBottom: '2rem' }}>
-        <h1>Rastreo GPS en Mapa</h1>
-        <p>Visualiza tu ubicación actual y los camiones de prueba en tiempo real.</p>
+        <h1>Rastreo GPS Global</h1>
+        <p>Monitor de rutas asignadas y posicionamiento en tiempo real de la flota.</p>
       </div>
+
+      {fleetStatus.length > 0 && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Resumen de Rutas Asignadas</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+             {fleetStatus.map(drv => (
+               <div key={drv.driver} style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: drv.isDriving ? '4px solid var(--accent-success)' : '4px solid var(--accent-warning)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong style={{ fontSize: '1.1rem', color: 'var(--text-primary)'}}>{drv.driver.toUpperCase()}</strong>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>A: {drv.dest}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, padding: '4px 8px', borderRadius: '12px', background: drv.isDriving ? 'rgba(16,185,129,0.1)' : 'rgba(234,179,8,0.1)', color: drv.isDriving ? 'var(--accent-success)' : 'var(--accent-warning)' }}>
+                      {drv.isDriving ? 'GPS En Vivo' : 'Estacionado'}
+                    </span>
+                  </div>
+               </div>
+             ))}
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: '2rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button 
