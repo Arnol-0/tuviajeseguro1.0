@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
 import { Truck, Shield, User, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-/**
- * MOCK_DB: Base de datos simulada para el inicio de sesión.
- * En producción, esto debería reemplazarse por una llamada real a una API o servicio de backend.
- */
-const MOCK_DB = {
-  'admin': { password: '123', role: 'supervisor' },
-  'chofer': { password: '123', role: 'conductor' }
-};
+import { database } from '../firebase';
+import { ref, get, child, set } from 'firebase/database';
 
 /**
  * Componente principal de Login (Inicio de Sesión).
@@ -37,24 +30,36 @@ export default function Login({ onLogin }) {
 
   /**
    * Manejador del evento submit del formulario de inicio de sesión.
-   * Realiza validaciones contra la base de datos local y simula latencia de red.
+   * Realiza validaciones contra Firebase Database.
    */
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setLoading(true);
 
-    // Simulamos un retraso de red de 1.2 segundos para mostrar el spinner
-    setTimeout(() => {
-      // Usamos toLowerCase() y trim() para insensibilidad de formato
-      const userRecord = MOCK_DB[username.toLowerCase().trim()];
+    try {
+      const usernameKey = username.toLowerCase().trim();
+      const dbRef = ref(database);
       
+      // Consultamos el usuario en firebase
+      let snapshot = await get(child(dbRef, `users/${usernameKey}`));
+      
+      // AUTO-CREACIÓN DE ADMINISTRADOR
+      // Si el usuario "admin" no existe, lo creamos para que nunca te quedes afuera
+      if (!snapshot.exists() && usernameKey === 'admin') {
+        const defaultAdmin = { password: '123', role: 'supervisor' };
+        await set(ref(database, `users/${usernameKey}`), defaultAdmin);
+        snapshot = await get(child(dbRef, `users/${usernameKey}`));
+      }
+
       // Validación 1: ¿Existe el usuario?
-      if (!userRecord) {
+      if (!snapshot.exists()) {
         setErrorMsg('Usuario no encontrado');
         setLoading(false);
         return;
       }
+
+      const userRecord = snapshot.val();
       
       // Validación 2: ¿La contraseña es correcta?
       if (userRecord.password !== password) {
@@ -75,7 +80,11 @@ export default function Login({ onLogin }) {
       
       // Redirigimos a la raíz (Dashboard) que ahora mostrará la vista correspondiente al rol
       navigate('/');
-    }, 1200);
+    } catch (error) {
+      console.error(error);
+      setErrorMsg('Error al conectar con la base de datos.');
+      setLoading(false);
+    }
   };
 
   return (

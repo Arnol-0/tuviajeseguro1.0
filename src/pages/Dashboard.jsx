@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowDownRight, ArrowUpRight, Activity, Truck, Map as MapIcon, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { database } from '../firebase';
+import { ref, onValue, set } from 'firebase/database';
 
 /**
  * Componente principal del Panel de Control (Dashboard) del Supervisor.
@@ -12,13 +14,34 @@ export default function Dashboard() {
   // Si es null, el modal de detalle está oculto.
   const [selectedPatent, setSelectedPatent] = useState(null);
 
-  // Estado que simula la base de datos de los últimos viajes registrados en el sistema.
-  const [trips] = useState([
-    { id: 'V-102', patent: 'LXYZ-45', driver: 'Juan Pérez', type: 'Entrada', time: '08:15 AM', status: 'Completado', cargo: 'Materiales' },
-    { id: 'V-103', patent: 'BHTC-99', driver: 'Carlos Ruiz', type: 'Salida', time: '09:00 AM', status: 'En Ruta', cargo: 'Despacho' },
-    { id: 'V-104', patent: 'WWKK-11', driver: 'Miguel Silva', type: 'Entrada', time: '10:30 AM', status: 'Pendiente', cargo: 'Devolución' },
-    { id: 'V-105', patent: 'RTYU-02', driver: 'Pedro Gómez', type: 'Salida', time: '11:45 AM', status: 'En Ruta', cargo: 'Maquinaria' },
-  ]);
+  // Estado que ahora manejará datos en tiempo real desde Firebase.
+  const [trips, setTrips] = useState([]);
+
+  useEffect(() => {
+    const tripsRef = ref(database, 'trips');
+    
+    // Escuchar datos en Firebase y mantenerlos sincronizados en tiempo real
+    const unsubscribe = onValue(tripsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        // Firebase devuelve un objeto o arreglo, aseguramos que sea arreglo
+        setTrips(Object.values(data));
+      } else {
+        // Si no existen viajes, migramos los antiguos mocks a Firebase
+        const defaultTrips = [
+          { id: 'V-102', patent: 'LXYZ-45', driver: 'Juan Pérez', type: 'Entrada', time: '08:15 AM', status: 'Completado', cargo: 'Materiales' },
+          { id: 'V-103', patent: 'BHTC-99', driver: 'Carlos Ruiz', type: 'Salida', time: '09:00 AM', status: 'En Ruta', cargo: 'Despacho' },
+          { id: 'V-104', patent: 'WWKK-11', driver: 'Miguel Silva', type: 'Entrada', time: '10:30 AM', status: 'Pendiente', cargo: 'Devolución' },
+          { id: 'V-105', patent: 'RTYU-02', driver: 'Pedro Gómez', type: 'Salida', time: '11:45 AM', status: 'En Ruta', cargo: 'Maquinaria' },
+        ];
+        // Sincronizando datos por defecto a Firebase la primer vez
+        set(ref(database, 'trips'), defaultTrips);
+      }
+    });
+
+    // Desconectar evento cuando el dashboard se cierra
+    return () => unsubscribe();
+  }, []);
 
   return (
     <div className="animate-fade-in">
