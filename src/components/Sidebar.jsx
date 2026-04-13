@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Truck, LayoutDashboard, UserCircle, Settings, LogOut, FilePlus, MapPin } from 'lucide-react';
+import { Truck, LayoutDashboard, UserCircle, Settings, LogOut, FilePlus, MapPin, Users } from 'lucide-react';
 
 export default function Sidebar({ role }) {
   return (
@@ -21,23 +21,34 @@ export default function Sidebar({ role }) {
           <span>Dashboard</span>
         </NavLink>
         
-        {role === 'supervisor' && (
-          <NavLink 
-            to="/registro" 
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          >
-            <FilePlus size={20} />
-            <span>Registrar Viaje</span>
-          </NavLink>
+        {role === 'supervisor_ruta' && (
+          <>
+            <NavLink 
+              to="/registro" 
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              <FilePlus size={20} />
+              <span>Asignar Rutas</span>
+            </NavLink>
+            <NavLink 
+              to="/usuarios" 
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              <Users size={20} />
+              <span>Gestionar Usuarios</span>
+            </NavLink>
+          </>
         )}
 
-        <NavLink 
-          to="/mapa" 
-          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-        >
-          <MapPin size={20} />
-          <span>Mapa GPS</span>
-        </NavLink>
+        {(role === 'supervisor_ruta' || role === 'conductor') && (
+          <NavLink 
+            to="/mapa" 
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+          >
+            <MapPin size={20} />
+            <span>Mapa GPS</span>
+          </NavLink>
+        )}
 
         <NavLink 
           to="/perfil" 

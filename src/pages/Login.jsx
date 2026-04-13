@@ -12,8 +12,8 @@ import { ref, get, child, set } from 'firebase/database';
  * @param {Function} props.onLogin - Función que se ejecuta tras un inicio de sesión exitoso; recibe el rol del usuario como argumento.
  */
 export default function Login({ onLogin }) {
-  // Estado para guardar el rol actualmente seleccionado ('supervisor' o 'conductor')
-  const [activeRole, setActiveRole] = useState('supervisor');
+  // Estado para guardar el rol actualmente seleccionado ('supervisor_ruta', 'supervisor_entrada' o 'conductor')
+  const [activeRole, setActiveRole] = useState('supervisor_ruta');
   
   // Estado para los campos del formulario
   const [username, setUsername] = useState('');
@@ -47,7 +47,7 @@ export default function Login({ onLogin }) {
       // AUTO-CREACIÓN DE ADMINISTRADOR
       // Si el usuario "admin" no existe, lo creamos para que nunca te quedes afuera
       if (!snapshot.exists() && usernameKey === 'admin') {
-        const defaultAdmin = { password: '123', role: 'supervisor' };
+        const defaultAdmin = { password: '123', role: 'supervisor_ruta' };
         await set(ref(database, `users/${usernameKey}`), defaultAdmin);
         snapshot = await get(child(dbRef, `users/${usernameKey}`));
       }
@@ -100,21 +100,18 @@ export default function Login({ onLogin }) {
           <p className="login-subtitle">Selecciona tu rol operativo para acceder</p>
 
           {/* --- SELECTOR DE ROLES --- */}
-          <div className="role-toggle">
-            <button 
-              type="button" 
-              className={`role-btn ${activeRole === 'supervisor' ? 'active' : 'inactive'}`}
-              onClick={() => setActiveRole('supervisor')}
+          <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Seleccionar Rol de Ingreso</label>
+            <select 
+              className="login-input"
+              value={activeRole}
+              onChange={(e) => setActiveRole(e.target.value)}
+              style={{ appearance: 'auto', padding: '0.75rem', width: '100%', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius-md)' }}
             >
-              <Shield size={16} /> Supervisor
-            </button>
-            <button 
-              type="button" 
-              className={`role-btn ${activeRole === 'conductor' ? 'active' : 'inactive'}`}
-              onClick={() => setActiveRole('conductor')}
-            >
-              <User size={16} /> Conductor
-            </button>
+              <option value="supervisor_ruta" style={{ color: 'black' }}>Supervisión y Rutas (Admin)</option>
+              <option value="supervisor_entrada" style={{ color: 'black' }}>Supervisión de Entrada</option>
+              <option value="conductor" style={{ color: 'black' }}>Chofer Conductor</option>
+            </select>
           </div>
 
           {/* --- FORMULARIO DE INGRESO --- */}
@@ -131,7 +128,7 @@ export default function Login({ onLogin }) {
                 <input 
                   type="text" 
                   className="login-input"
-                  placeholder={activeRole === 'supervisor' ? "ID_ARQUITECTO (ej: admin)" : "ID_CHOFER (ej: chofer)"}
+                  placeholder="ID de Operador (ej: admin)"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required

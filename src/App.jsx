@@ -7,6 +7,7 @@ import RegistroViaje from './pages/RegistroViaje';
 import PerfilUsuario from './pages/PerfilUsuario';
 import MapaGPS from './pages/MapaGPS';
 import Login from './pages/Login';
+import GestionUsuarios from './pages/GestionUsuarios';
 
 function App() {
   const [authState, setAuthState] = useState({ isAuthenticated: false, role: null });
@@ -17,10 +18,11 @@ function App() {
         <Route path="/login" element={<Login onLogin={(role) => setAuthState({ isAuthenticated: true, role })} />} />
         
         <Route path="/" element={authState.isAuthenticated ? <Layout role={authState.role} /> : <Navigate to="/login" replace />}>
-          <Route index element={authState.role === 'supervisor' ? <Dashboard /> : <DashboardConductor />} />
+          <Route index element={(authState.role === 'supervisor_ruta' || authState.role === 'supervisor_entrada') ? <Dashboard /> : <DashboardConductor />} />
           <Route path="registro" element={<RegistroViaje />} />
           <Route path="perfil" element={<PerfilUsuario />} />
           <Route path="mapa" element={<MapaGPS />} />
+          <Route path="usuarios" element={<GestionUsuarios />} />
         </Route>
       </Routes>
     </BrowserRouter>
