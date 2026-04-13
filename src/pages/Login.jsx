@@ -94,7 +94,7 @@ export default function Login({ onLogin }) {
             <div className="login-top-icon">
               <Truck size={36} color="white" />
             </div>
-            <h2 className="login-title">FREIGHT SENTINEL</h2>
+            <h2 className="login-title">TU VIAJE SEGURO</h2>
             <p className="login-subtitle">Ingresa tus credenciales para acceder a la terminal</p>
 
             {/* --- FORMULARIO DE INGRESO --- */}
@@ -119,12 +119,12 @@ export default function Login({ onLogin }) {
                 </div>
               </div>
 
-            {/* Campo: Contraseña (Token de Seguridad) */}
+            {/* Campo: Contraseña */}
             <div className="login-input-group">
               <div className="login-label">
-                <span>Token de Seguridad</span>
+                <span>Contraseña</span>
                 {/* Enlace para recuperación de contraseña */}
-                <a href="#" style={{ color: '#475569', textDecoration: 'none', textTransform: 'none' }}>¿Olvidó el Token?</a>
+                <a href="#" style={{ color: '#475569', textDecoration: 'none', textTransform: 'none' }}>¿Olvidó su contraseña?</a>
               </div>
               <div className="login-input-wrapper">
                 <div className="login-input-icon">
