@@ -65,24 +65,42 @@ export default function MapaGPS() {
         for (let key in usersObj) {
           const user = usersObj[key];
           if (user.role === 'conductor') {
+            const trip = user.currentTrip;
+            const hasLiveLocation = !!user.location;
             
             // Llenar panel de estado de flota si tienen ruta asignada
-            if (user.currentTrip) {
+            if (trip) {
                fleet.push({
                  driver: key,
-                 dest: user.currentTrip.destination,
-                 isDriving: !!user.location
+                 dest: trip.destination,
+                 isDriving: hasLiveLocation
                });
-            }
 
-            // Solo cargar al mapa los camiones que estén transmitiendo ubicación
-            if (user.location) {
-              trucks.push({
-                driver: key.toUpperCase(),
-                position: [user.location.lat, user.location.lng],
-                destination: user.currentTrip ? user.currentTrip.destination : 'Sin ruta',
-                cargo: user.currentTrip ? user.currentTrip.cargo : 'N/A'
-              });
+               // Cargar al mapa: Si está en vivo (location real) o si tiene originCoords (punto de salida)
+               const positionCoords = hasLiveLocation 
+                 ? [user.location.lat, user.location.lng] 
+                 : (trip.originCoords ? [trip.originCoords[0], trip.originCoords[1]] : null);
+
+               if (positionCoords) {
+                 trucks.push({
+                   driver: key.toUpperCase(),
+                   position: positionCoords,
+                   destination: trip.destination || 'Sin ruta',
+                   cargo: trip.cargo || 'N/A',
+                   status: hasLiveLocation ? 'En Viaje Activo' : 'Estacionado (En origen)',
+                   isLive: hasLiveLocation
+                 });
+               }
+            } else if (hasLiveLocation) {
+               // Transmite ubicación pero no tiene viaje asignado
+               trucks.push({
+                 driver: key.toUpperCase(),
+                 position: [user.location.lat, user.location.lng],
+                 destination: 'Sin viaje',
+                 cargo: 'Sin carga',
+                 status: 'Libre / Conectado',
+                 isLive: true
+               });
             }
           }
         }
@@ -186,18 +204,20 @@ export default function MapaGPS() {
           />
           <LocationMarker position={position} />
           
-          {/* Renderizar Camiones con GPS Activo (Realtime API) */}
+          {/* Renderizar Camiones con GPS Activo O Estacionados (Realtime API) */}
           {activeTrucks.map((truck, idx) => (
             <Marker key={idx} position={truck.position} icon={customTruckIcon}>
               <Popup>
-                <div style={{ minWidth: '150px' }}>
+                <div style={{ minWidth: '170px' }}>
                   <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--accent-primary)', marginBottom: '0.5rem', borderBottom: '1px solid #ddd', paddingBottom: '0.25rem' }}>
                     <Truck size={16} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
                     {truck.driver}
                   </div>
-                  <div style={{ margin: '0.25rem 0' }}><strong>Destino:</strong> {truck.destination}</div>
-                  <div style={{ margin: '0.25rem 0' }}><strong>Carga:</strong> {truck.cargo}</div>
-                  <div style={{ margin: '0.25rem 0' }}><strong>Estado:</strong> <span style={{ color: 'var(--accent-success)' }}>En Viaje Activo</span></div>
+                  <div style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}><strong>Destino:</strong> {truck.destination}</div>
+                  <div style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}><strong>Carga:</strong> {truck.cargo}</div>
+                  <div style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
+                    <strong>Estado:</strong> <span style={{ color: truck.isLive ? 'var(--accent-success)' : 'var(--accent-warning)', fontWeight: 600 }}>{truck.status}</span>
+                  </div>
                 </div>
               </Popup>
             </Marker>
