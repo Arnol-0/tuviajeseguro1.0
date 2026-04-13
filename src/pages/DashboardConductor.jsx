@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Route, Clock, Navigation, MapPin, Play, Truck, Info } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { renderToString } from 'react-dom/server';
@@ -26,6 +26,17 @@ const customTruckIcon = new L.DivIcon({
   popupAnchor: [0, -18]
 });
 
+// Componente para seguir el camión (centrar el mapa en tiempo real)
+function MapTracker({ centerPos }) {
+  const map = useMap();
+  useEffect(() => {
+    if (centerPos) {
+      map.setView(centerPos, map.getZoom(), { animate: true });
+    }
+  }, [centerPos, map]);
+  return null;
+}
+
 /**
  * Componente Panel del Conductor (DashboardConductor).
  * Vista enfocada en la información relevante para un chofer,
@@ -36,6 +47,7 @@ export default function DashboardConductor() {
   const [isTripActive, setIsTripActive] = useState(false);
   const [currentTrip, setCurrentTrip] = useState(null);
   const [liveLocation, setLiveLocation] = useState([-33.4350, -70.6300]); // Fallback initial
+  const [speedKn, setSpeedKn] = useState(0);
 
   // Leer estado del viaje desde Firebase Realtime en vivo
   useEffect(() => {
@@ -59,7 +71,10 @@ export default function DashboardConductor() {
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
+          const userSpeed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+          
           setLiveLocation([lat, lng]);
+          setSpeedKn(userSpeed);
           // Guardar en Firebase para que el administrador lo vea en MapaGPS
           set(ref(database, `users/${username}/location`), { lat, lng });
         },
@@ -195,6 +210,9 @@ export default function DashboardConductor() {
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                 />
                 
+                {/* Tracker real time update center */}
+                <MapTracker centerPos={liveLocation} />
+                
                 {/* Trazado OSRM */}
                 {currentTrip.routeGeometry && (
                   <Polyline 
@@ -222,13 +240,13 @@ export default function DashboardConductor() {
               {/* Bottom Nav Stats */}
               <div style={{ position: 'absolute', bottom: '2rem', left: '1rem', right: '1rem', background: 'white', borderRadius: 'var(--radius-lg)', padding: '1.25rem', zIndex: 10000, boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Velocidad</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>65 <span style={{fontSize: '0.8rem'}}>km/h</span></div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Velocidad</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>{speedKn} <span style={{fontSize: '0.8rem', color: '#64748b'}}>km/h</span></div>
                 </div>
                 <div style={{ width: '1px', height: '40px', background: '#e2e8f0' }}></div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Restante</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{currentTrip.distanceKm || '...'} <span style={{fontSize: '0.8rem'}}>km</span></div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Restante</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#3b82f6' }}>{currentTrip.distanceKm || '...'} <span style={{fontSize: '0.8rem'}}>km</span></div>
                 </div>
               </div>
            </div>
