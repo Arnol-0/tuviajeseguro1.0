@@ -18,7 +18,7 @@ function App() {
         <Route path="/login" element={<Login onLogin={(role) => setAuthState({ isAuthenticated: true, role })} />} />
         
         <Route path="/" element={authState.isAuthenticated ? <Layout role={authState.role} /> : <Navigate to="/login" replace />}>
-          <Route index element={(authState.role === 'supervisor_ruta' || authState.role === 'supervisor_entrada') ? <Dashboard /> : <DashboardConductor />} />
+          <Route index element={(authState.role === 'supervisor_ruta' || authState.role === 'supervisor' || authState.role === 'supervisor_entrada') ? <Dashboard /> : <DashboardConductor />} />
           <Route path="registro" element={<RegistroViaje />} />
           <Route path="perfil" element={<PerfilUsuario />} />
           <Route path="mapa" element={<MapaGPS />} />

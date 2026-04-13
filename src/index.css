@@ -770,3 +770,68 @@ th {
 .page-transition {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    order: 2; 
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    padding: 0.5rem;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    border-right: none;
+    z-index: 1000;
+  }
+  
+  .sidebar .brand, .sidebar .nav-link span {
+    display: none; 
+  }
+  
+  .sidebar .nav-menu {
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-around;
+    gap: 0;
+    align-items: center;
+  }
+  
+  .sidebar .nav-menu > div {
+    display: none; /* Hide spacers */
+  }
+
+  .sidebar .nav-link {
+    padding: 0.5rem;
+    justify-content: center;
+    flex: 1;
+    border-radius: 50%;
+    max-width: 50px;
+  }
+  
+  .sidebar .nav-link.active {
+    background: rgba(59, 130, 246, 0.1);
+    border-left: none;
+    border-bottom: 2px solid var(--accent-primary);
+    border-radius: 12px;
+  }
+  
+  .main-content {
+    order: 1;
+    padding: 1rem;
+    padding-bottom: 80px; /* Space for bottom nav */
+  }
+  
+  .stats-grid, .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

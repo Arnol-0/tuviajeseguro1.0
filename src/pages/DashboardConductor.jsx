@@ -88,11 +88,11 @@ export default function DashboardConductor() {
         </div>
       </div>
 
-      {/* --- SECCIÓN DE RUTA ASIGNADA --- */}
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <div className="card">
+      {/* --- SECCIÓN DE RUTA ASIGNADA / MODO VIAJE --- */}
+      <div style={{ maxWidth: isTripActive ? '100%' : '800px', margin: '0 auto', transition: 'all 0.3s ease' }}>
+        <div className="card" style={{ padding: isTripActive ? '1rem' : '1.5rem' }}>
           <h2 className="card-title" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Navigation size={20} color="var(--accent-primary)"/> Ruta Asignada
+            <Navigation size={20} color="var(--accent-primary)"/> {isTripActive ? 'Navegación Activa' : 'Ruta Asignada'}
           </h2>
           
           {/* Contenedor condicional: Muestra cronograma o el Mapa según estado */}
@@ -116,11 +116,11 @@ export default function DashboardConductor() {
               </div>
             </div>
           ) : (
-            <div style={{ marginTop: '1.5rem' }}>
-              <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', color: '#10b981', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                <Clock size={20} /> ETA Estimado (Llegada): 1 Hora 45 Minutos
+            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 220px)', minHeight: '600px' }}>
+              <div style={{ padding: '0.75rem 1rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '1.1rem' }}>
+                <Clock size={20} /> ETA: 1 Hora 45 Minutos
               </div>
-              <div style={{ height: '400px', borderRadius: 'var(--radius-md)', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+              <div style={{ flex: 1, borderRadius: 'var(--radius-md)', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
                 <MapContainer center={[-33.4350, -70.6300]} zoom={13} style={{ height: '100%', width: '100%' }}>
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -144,7 +144,7 @@ export default function DashboardConductor() {
               Entrar en Modo Viaje
             </button>
           ) : (
-            <button className="btn btn-outline" onClick={() => setIsTripActive(false)} style={{ width: '100%', marginTop: '1.5rem', justifyContent: 'center' }}>
+            <button className="btn btn-outline" onClick={() => setIsTripActive(false)} style={{ width: '100%', marginTop: '1.5rem', justifyContent: 'center', padding: '1rem', borderColor: 'var(--accent-danger)', color: 'var(--accent-danger)' }}>
               Finalizar Recorrido / Volver
             </button>
           )}

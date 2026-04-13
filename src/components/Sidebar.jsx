@@ -21,7 +21,8 @@ export default function Sidebar({ role }) {
           <span>Dashboard</span>
         </NavLink>
         
-        {role === 'supervisor_ruta' && (
+        {/* Menú para Administradores de Rutas */}
+        {(role === 'supervisor_ruta' || role === 'supervisor') && (
           <>
             <NavLink 
               to="/registro" 
@@ -40,7 +41,8 @@ export default function Sidebar({ role }) {
           </>
         )}
 
-        {(role === 'supervisor_ruta' || role === 'conductor') && (
+        {/* Mapa GPS disponible para Admin y Choferes */}
+        {(role === 'supervisor_ruta' || role === 'supervisor' || role === 'conductor') && (
           <NavLink 
             to="/mapa" 
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
@@ -50,20 +52,16 @@ export default function Sidebar({ role }) {
           </NavLink>
         )}
 
+        <div style={{ flex: 1 }}></div>
+
+        {/* Botón fusionado de Configuración y Perfil */}
         <NavLink 
           to="/perfil" 
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >
-          <UserCircle size={20} />
-          <span>Perfil de Usuario</span>
-        </NavLink>
-
-        <div style={{ flex: 1 }}></div>
-
-        <button className="nav-link" style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left' }}>
           <Settings size={20} />
-          <span>Configuración</span>
-        </button>
+          <span>Configuración (Perfil)</span>
+        </NavLink>
         
         <button className="nav-link" style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer', textAlign: 'left', color: 'var(--accent-danger)' }}>
           <LogOut size={20} />
