@@ -25,15 +25,29 @@ function MapPickerHandler({ onLocationSelect }) {
   return null;
 }
 
+// Componente para poder centrar el mapa desde afuera
+function MapController({ centerPos }) {
+  const map = useMap();
+  useEffect(() => {
+    if (centerPos) {
+      map.flyTo(centerPos, 14, { animate: true });
+    }
+  }, [centerPos, map]);
+  return null;
+}
+
 export default function RegistroViaje() {
   const [drivers, setDrivers] = useState([]);
   const [formData, setFormData] = useState({
     driver: '',
+    originName: '',
+    destName: '',
     cargo: '',
     weight: ''
   });
   const [originCoords, setOriginCoords] = useState(null);
   const [destCoords, setDestCoords] = useState(null);
+  const [mapCenter, setMapCenter] = useState([-33.4569, -70.6483]);
   const [selectingMode, setSelectingMode] = useState('origin'); // 'origin' o 'dest'
   const [status, setStatus] = useState({ message: '', type: '' });
 
@@ -92,8 +106,8 @@ export default function RegistroViaje() {
       }
 
       const tripData = {
-        origin: 'Punto Geo-Asignado (A)',
-        destination: 'Punto Geo-Asignado (B)',
+        origin: formData.originName || 'Punto Geo-Asignado (A)',
+        destination: formData.destName || 'Punto Geo-Asignado (B)',
         originCoords,
         destCoords,
         cargo: formData.cargo,
@@ -108,7 +122,7 @@ export default function RegistroViaje() {
       await set(ref(database, `users/${formData.driver}/currentTrip`), tripData);
       
       setStatus({ message: `Ruta de ${distanceKm} km calculada y asignada exitosamente a ${formData.driver}`, type: 'success' });
-      setFormData({ driver: '', cargo: '', weight: '' });
+      setFormData({ driver: '', originName: '', destName: '', cargo: '', weight: '' });
       setOriginCoords(null);
       setDestCoords(null);
       setSelectingMode('origin');
@@ -116,6 +130,52 @@ export default function RegistroViaje() {
       console.error(e);
       setStatus({ message: 'Error de red o geolocalización al calcular ruta.', type: 'error' });
     }
+  };
+
+  const handleSearch = async (query, type) => {
+    if (!query) return;
+    setStatus({ message: 'Buscando dirección...', type: 'info' });
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const latlng = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        setMapCenter(latlng);
+        if (type === 'origin') {
+          setOriginCoords(latlng);
+          setSelectingMode('dest');
+        } else {
+          setDestCoords(latlng);
+        }
+        setStatus({ message: '', type: '' });
+      } else {
+        setStatus({ message: 'No se encontró la dirección en el mapa.', type: 'error' });
+      }
+    } catch (e) {
+      setStatus({ message: 'Error al buscar dirección.', type: 'error' });
+    }
+  };
+
+  const locateAdminGPS = () => {
+    if (!navigator.geolocation) {
+      setStatus({ message: 'GPS no soportado en tu navegador.', type: 'error' });
+      return;
+    }
+    setStatus({ message: 'Obteniendo GPS...', type: 'info' });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const latlng = [pos.coords.latitude, pos.coords.longitude];
+        setMapCenter(latlng);
+        if (selectingMode === 'origin') {
+          setOriginCoords(latlng);
+          setSelectingMode('dest');
+        } else {
+          setDestCoords(latlng);
+        }
+        setStatus({ message: '', type: '' });
+      },
+      () => setStatus({ message: 'Permiso de ubicación denegado.', type: 'error' })
+    );
   };
 
   const handleChange = (e) => {
@@ -156,7 +216,29 @@ export default function RegistroViaje() {
             </div>
 
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Fija los puntos en el mapa</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ flex: 1, minWidth: '250px' }}>
+                  <label><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Nombre Origen (Opcional)</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input type="text" name="originName" className="form-control" placeholder="Ej. Calle Santiago 123" value={formData.originName} onChange={handleChange} />
+                    <button type="button" className="btn btn-outline" onClick={() => handleSearch(formData.originName, 'origin')} style={{ whiteSpace: 'nowrap' }}>Buscar en Mapa</button>
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: '250px' }}>
+                  <label><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Nombre Destino (Opcional)</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input type="text" name="destName" className="form-control" placeholder="Ej. Puerto Valparaíso" value={formData.destName} onChange={handleChange} />
+                    <button type="button" className="btn btn-outline" onClick={() => handleSearch(formData.destName, 'dest')} style={{ whiteSpace: 'nowrap' }}>Buscar en Mapa</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-group" style={{ gridColumn: '1 / -1', marginTop: '-1rem' }}>
+              <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Posiciones Geográficas Exactas</span>
+                <button type="button" onClick={locateAdminGPS} style={{ color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>+ Usar Mi GPS Actual</button>
+              </label>
               
               <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                  <button 
@@ -178,8 +260,9 @@ export default function RegistroViaje() {
               </div>
 
               <div style={{ height: '350px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.1)' }}>
-                <MapContainer center={[-33.4569, -70.6483]} zoom={12} style={{ height: '100%', width: '100%' }}>
+                <MapContainer center={mapCenter} zoom={12} style={{ height: '100%', width: '100%' }}>
                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                   <MapController centerPos={mapCenter} />
                    <MapPickerHandler onLocationSelect={(latlng) => {
                       if (selectingMode === 'origin') {
                         setOriginCoords([latlng.lat, latlng.lng]);
@@ -228,7 +311,7 @@ export default function RegistroViaje() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-            <button type="button" className="btn btn-outline" onClick={() => { setFormData({ driver: '', cargo: '', weight: '' }); setOriginCoords(null); setDestCoords(null); setSelectingMode('origin'); }}>Reiniciar Posiciones</button>
+            <button type="button" className="btn btn-outline" onClick={() => { setFormData({ driver: '', originName: '', destName: '', cargo: '', weight: '' }); setOriginCoords(null); setDestCoords(null); setSelectingMode('origin'); }}>Reiniciar Posiciones</button>
             <button type="submit" className="btn btn-primary">
               <Send size={18} />
               Asignar Ruta GPS
