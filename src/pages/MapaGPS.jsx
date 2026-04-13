@@ -4,6 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import { Navigation, MapPin, Truck } from 'lucide-react';
 import L from 'leaflet';
 import { renderToString } from 'react-dom/server';
+import { database } from '../firebase';
+import { ref, onValue } from 'firebase/database';
 
 // Corregir icono por defecto de Leaflet en React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -49,14 +51,33 @@ export default function MapaGPS() {
   const [position, setPosition] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeTrucks, setActiveTrucks] = useState([]);
 
-  // Localizaciones de camiones de prueba (Cercanos a Santiago)
-  const mockTrucks = [
-    { id: 'V-102', patent: 'LXYZ-45', position: [-33.4350, -70.6300], driver: 'Juan Pérez', status: 'En Movimiento', speed: '65 km/h' },
-    { id: 'V-103', patent: 'BHTC-99', position: [-33.4600, -70.6800], driver: 'Carlos Ruiz', status: 'Detenido', speed: '0 km/h' },
-    { id: 'V-104', patent: 'WWKK-11', position: [-33.4100, -70.5900], driver: 'Miguel Silva', status: 'En Ruta', speed: '55 km/h' },
-    { id: 'V-106', patent: 'AXRT-22', position: [-33.5100, -70.7100], driver: 'Marcos Toro', status: 'En Ruta', speed: '72 km/h' }
-  ];
+  // Leer posiciones en tiempo real desde Firebase
+  useEffect(() => {
+    const usersRef = ref(database, 'users');
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      const trucks = [];
+      if (snapshot.exists()) {
+        const usersObj = snapshot.val();
+        for (let key in usersObj) {
+          const user = usersObj[key];
+          // Solo cargar camiones que estén transmitiendo ubicación
+          if (user.role === 'conductor' && user.location) {
+            trucks.push({
+              driver: key.toUpperCase(),
+              position: [user.location.lat, user.location.lng],
+              destination: user.currentTrip ? user.currentTrip.destination : 'Sin ruta',
+              cargo: user.currentTrip ? user.currentTrip.cargo : 'N/A'
+            });
+          }
+        }
+      }
+      setActiveTrucks(trucks);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const locateUser = () => {
     setLoading(true);
@@ -129,19 +150,18 @@ export default function MapaGPS() {
           />
           <LocationMarker position={position} />
           
-          {/* Renderizar Camiones de Prueba */}
-          {mockTrucks.map((truck, idx) => (
+          {/* Renderizar Camiones con GPS Activo (Realtime API) */}
+          {activeTrucks.map((truck, idx) => (
             <Marker key={idx} position={truck.position} icon={customTruckIcon}>
               <Popup>
                 <div style={{ minWidth: '150px' }}>
                   <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--accent-primary)', marginBottom: '0.5rem', borderBottom: '1px solid #ddd', paddingBottom: '0.25rem' }}>
                     <Truck size={16} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
-                    Patente: {truck.patent}
+                    {truck.driver}
                   </div>
-                  <div style={{ margin: '0.25rem 0' }}><strong>ID:</strong> {truck.id}</div>
-                  <div style={{ margin: '0.25rem 0' }}><strong>Piloto:</strong> {truck.driver}</div>
-                  <div style={{ margin: '0.25rem 0' }}><strong>Estado:</strong> <span style={{ color: truck.status === 'Detenido' ? 'red' : 'green' }}>{truck.status}</span></div>
-                  <div style={{ margin: '0.25rem 0' }}><strong>Velocidad:</strong> {truck.speed}</div>
+                  <div style={{ margin: '0.25rem 0' }}><strong>Destino:</strong> {truck.destination}</div>
+                  <div style={{ margin: '0.25rem 0' }}><strong>Carga:</strong> {truck.cargo}</div>
+                  <div style={{ margin: '0.25rem 0' }}><strong>Estado:</strong> <span style={{ color: 'var(--accent-success)' }}>En Viaje Activo</span></div>
                 </div>
               </Popup>
             </Marker>

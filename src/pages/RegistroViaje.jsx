@@ -1,30 +1,74 @@
-import React, { useState } from 'react';
-import { Send, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { database } from '../firebase';
+import { ref, get, set, child } from 'firebase/database';
+import { Send, FileText, MapPin, Package, User, Clock } from 'lucide-react';
 
 export default function RegistroViaje() {
+  const [drivers, setDrivers] = useState([]);
   const [formData, setFormData] = useState({
-    patent: '',
     driver: '',
-    type: 'Entrada',
+    origin: '',
+    destination: '',
     cargo: '',
-    notes: ''
+    weight: ''
   });
+  const [status, setStatus] = useState({ message: '', type: '' });
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    // Cargar todos los choferes al montar
+    const fetchDrivers = async () => {
+      try {
+        const dbRef = ref(database);
+        const snapshot = await get(child(dbRef, 'users'));
+        if (snapshot.exists()) {
+          const usersObj = snapshot.val();
+          const conductors = [];
+          for (let key in usersObj) {
+            if (usersObj[key].role === 'conductor') {
+              conductors.push(key);
+            }
+          }
+          setDrivers(conductors);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchDrivers();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate save
-    alert(`Viaje de ${formData.type} registrado para la patente ${formData.patent}`);
-    setFormData({ patent: '', driver: '', type: 'Entrada', cargo: '', notes: '' });
+    setStatus({ message: 'Asignando ruta...', type: 'info' });
+    
+    if (!formData.driver) {
+      setStatus({ message: 'Selecciona un chofer primero', type: 'error' });
+      return;
+    }
+
+    try {
+      const tripData = {
+        origin: formData.origin,
+        destination: formData.destination,
+        cargo: formData.cargo,
+        weight: formData.weight,
+        startTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' }),
+        status: 'Pendiente'
+      };
+      
+      // Guardar el currentTrip dentro del nodo de ese chofer específico
+      await set(ref(database, `users/${formData.driver}/currentTrip`), tripData);
+      
+      setStatus({ message: `Ruta asignada exitosamente a ${formData.driver}`, type: 'success' });
+      setFormData({ driver: '', origin: '', destination: '', cargo: '', weight: '' });
+    } catch (e) {
+      console.error(e);
+      setStatus({ message: 'Error al asignar la ruta', type: 'error' });
+    }
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === 'patent') {
-      // Auto uppercase for patent
-      setFormData({ ...formData, [name]: value.toUpperCase().slice(0,7) });
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   return (
@@ -45,76 +89,85 @@ export default function RegistroViaje() {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="form-group">
-              <label>Patente del Vehículo</label>
-              <input 
-                type="text" 
-                name="patent"
-                className="form-control" 
-                placeholder="Ej. LXYZ-45" 
-                value={formData.patent}
-                onChange={handleChange}
-                required
-                style={{ fontFamily: 'monospace', fontSize: '1.1rem', letterSpacing: '2px', fontWeight: 'bold' }}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Nombre del Conductor</label>
-              <input 
-                type="text" 
+              <label><User size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Seleccionar Chofer</label>
+              <select 
                 name="driver"
                 className="form-control" 
-                placeholder="Nombre Completo" 
                 value={formData.driver}
                 onChange={handleChange}
                 required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Tipo de Movimiento</label>
-              <select 
-                name="type"
-                className="form-control" 
-                value={formData.type}
-                onChange={handleChange}
               >
-                <option value="Entrada">Entrada (Llegada a Base)</option>
-                <option value="Salida">Salida (En Ruta)</option>
+                <option value="">-- Elija un conductor disponible --</option>
+                {drivers.map(drv => (
+                  <option key={drv} value={drv}>{drv.toUpperCase()}</option>
+                ))}
               </select>
             </div>
 
             <div className="form-group">
-              <label>Tipo de Carga</label>
+              <label><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Punto de Origen</label>
+              <input 
+                type="text" 
+                name="origin"
+                className="form-control" 
+                placeholder="Ej. Centro de Distribución Norte" 
+                value={formData.origin}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Punto de Destino</label>
+              <input 
+                type="text" 
+                name="destination"
+                className="form-control" 
+                placeholder="Ej. Sucursal Valparaíso" 
+                value={formData.destination}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label><Package size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Cargamento</label>
               <input 
                 type="text" 
                 name="cargo"
                 className="form-control" 
-                placeholder="Ej. Materiales de Construcción" 
+                placeholder="Ej. Materiales Metálicos" 
                 value={formData.cargo}
                 onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label><FileText size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Peso Total</label>
+              <input 
+                type="text" 
+                name="weight"
+                className="form-control" 
+                placeholder="Ej. 12.5 Toneladas" 
+                value={formData.weight}
+                onChange={handleChange}
+                required
               />
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Notas Adicionales / Observaciones</label>
-            <textarea 
-              name="notes"
-              className="form-control" 
-              rows="4" 
-              placeholder="Detalles sobre el estado del camión, carga, etc."
-              value={formData.notes}
-              onChange={handleChange}
-              style={{ resize: 'vertical' }}
-            ></textarea>
-          </div>
+          {status.message && (
+            <div style={{ padding: '1rem', marginTop: '1rem', borderRadius: 'var(--radius-md)', background: status.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: status.type === 'error' ? '#ef4444' : '#10b981', fontWeight: 500, textAlign: 'center' }}>
+              {status.message}
+            </div>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-            <button type="button" className="btn btn-outline" onClick={() => setFormData({ patent: '', driver: '', type: 'Entrada', cargo: '', notes: '' })}>Limpiar Formulario</button>
+            <button type="button" className="btn btn-outline" onClick={() => setFormData({ driver: '', origin: '', destination: '', cargo: '', weight: '' })}>Limpiar Formulario</button>
             <button type="submit" className="btn btn-primary">
               <Send size={18} />
-              Registrar Movimiento
+              Asignar Ruta GPS
             </button>
           </div>
         </form>

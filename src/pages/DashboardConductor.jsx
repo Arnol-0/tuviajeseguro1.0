@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import { Package, Route, Clock, Navigation, MapPin, Play, Truck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, Route, Clock, Navigation, MapPin, Play, Truck, Info } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { renderToString } from 'react-dom/server';
+import { useOutletContext } from 'react-router-dom';
+import { database } from '../firebase';
+import { ref, onValue, set } from 'firebase/database';
 
 // Corregir icono por defecto de Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -29,20 +32,61 @@ const customTruckIcon = new L.DivIcon({
  * mostrando el estado de la carga actual y la ruta asignada.
  */
 export default function DashboardConductor() {
-  // Estado para controlar si el chofer inició el viaje ("Modo Viaje")
+  const { username } = useOutletContext();
   const [isTripActive, setIsTripActive] = useState(false);
+  const [currentTrip, setCurrentTrip] = useState(null);
+  const [liveLocation, setLiveLocation] = useState([-33.4350, -70.6300]); // Fallback initial
 
-  // Objeto con la información estática (mock) del viaje actual asignado al conductor.
-  // En un entorno de producción, esto se obtendría mediante una API.
-  const currentTrip = {
-    origin: 'Centro de Distribución (Punto A)',
-    destination: 'Sucursal Norte (Punto B)',
-    cargo: 'Materiales de Construcción',
-    weight: '12.5 Toneladas',
-    estimatedTime: '1h 45m',
-    status: 'En Ruta',
-    startTime: '10:30 AM'
-  };
+  // Leer estado del viaje desde Firebase Realtime en vivo
+  useEffect(() => {
+    if (!username) return;
+    const tripRef = ref(database, `users/${username}/currentTrip`);
+    const unsubscribe = onValue(tripRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setCurrentTrip(snapshot.val());
+      } else {
+        setCurrentTrip(null);
+      }
+    });
+    return () => unsubscribe();
+  }, [username]);
+
+  // Rastreo de GPS local mientras isTripActive sea verdadero
+  useEffect(() => {
+    let watchId;
+    if (isTripActive && navigator.geolocation && username) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setLiveLocation([lat, lng]);
+          // Guardar en Firebase para que el administrador lo vea en MapaGPS
+          set(ref(database, `users/${username}/location`), { lat, lng });
+        },
+        (err) => console.warn('Error GPS:', err),
+        { enableHighAccuracy: true }
+      );
+    } else if (!isTripActive && username) {
+      // Limpiar ubicación de firebase cuando finaliza el viaje
+      set(ref(database, `users/${username}/location`), null);
+    }
+
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [isTripActive, username]);
+
+  if (!currentTrip) {
+    return (
+      <div className="animate-fade-in" style={{ textAlign: 'center', marginTop: '6rem' }}>
+        <div style={{ background: 'var(--bg-secondary)', width: '100px', height: '100px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: 'var(--text-secondary)' }}>
+          <Info size={40} />
+        </div>
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Viaje No Asignado</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto' }}>No tienes ninguna ruta u orden de envío pendiente en este momento. Por favor, contacta con tu supervisor de logística o espera la pronta asignación.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -146,13 +190,13 @@ export default function DashboardConductor() {
 
            {/* Fullscreen Map Area */}
            <div style={{ flex: 1, position: 'relative' }}>
-              <MapContainer center={[-33.4350, -70.6300]} zoom={14} style={{ height: '100%', width: '100%' }}>
+              <MapContainer center={liveLocation} zoom={16} zoomControl={false} style={{ height: '100%', width: '100%' }}>
                 <TileLayer
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                 />
-                <Marker position={[-33.4350, -70.6300]} icon={customTruckIcon}>
+                <Marker position={liveLocation} icon={customTruckIcon}>
                   <Popup>
-                    <strong>Mi Camión</strong><br/>Lat: -33.4350 <br/>En ruta.
+                    <strong>Mi Camión</strong><br/>Lat: {liveLocation[0].toFixed(4)} <br/>En ruta.
                   </Popup>
                 </Marker>
               </MapContainer>
