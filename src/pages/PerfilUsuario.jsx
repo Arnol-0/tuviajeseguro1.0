@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { Save, User, Mail, Phone, MapPin, Shield } from 'lucide-react';
 
 export default function PerfilUsuario() {
+  const { role, username } = useOutletContext() || {};
+
   const [user, setUser] = useState({
-    name: 'Administrador Principal',
-    email: 'admin@tuviajeseguro.com',
+    name: username || 'Administrador',
+    email: `${username || 'usuario'}@tuviajeseguro.com`,
     phone: '+56 9 1234 5678',
     location: 'Santiago, Chile',
-    role: 'Super Admin',
+    role: role || 'Super Admin',
     status: 'Activo'
   });
 
@@ -21,8 +24,8 @@ export default function PerfilUsuario() {
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="profile-cover">
           <div className="profile-avatar-wrapper">
-            <div className="profile-avatar">
-              <span style={{ fontSize: '3rem', color: 'var(--accent-primary)', fontWeight: 700 }}>A</span>
+            <div className="profile-avatar" style={{ textTransform: 'uppercase' }}>
+              <span style={{ fontSize: '3rem', color: 'var(--accent-primary)', fontWeight: 700 }}>{user.name.charAt(0)}</span>
             </div>
           </div>
         </div>

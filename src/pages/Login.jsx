@@ -65,8 +65,8 @@ export default function Login({ onLogin }) {
         return;
       }
 
-      // Login exitoso: Notificamos a la aplicación (App.jsx) sobre el rol detectado en la DB
-      onLogin(userRecord.role);
+      // Login exitoso: Notificamos a la aplicación (App.jsx) sobre el rol detectado en la DB y el nombre de usuario
+      onLogin(userRecord.role, usernameKey);
       
       // Redirigimos a la raíz (Dashboard) que ahora mostrará la vista correspondiente al rol
       navigate('/');

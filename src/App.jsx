@@ -10,14 +10,14 @@ import Login from './pages/Login';
 import GestionUsuarios from './pages/GestionUsuarios';
 
 function App() {
-  const [authState, setAuthState] = useState({ isAuthenticated: false, role: null });
+  const [authState, setAuthState] = useState({ isAuthenticated: false, role: null, username: '' });
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login onLogin={(role) => setAuthState({ isAuthenticated: true, role })} />} />
+        <Route path="/login" element={<Login onLogin={(role, username) => setAuthState({ isAuthenticated: true, role, username })} />} />
         
-        <Route path="/" element={authState.isAuthenticated ? <Layout role={authState.role} /> : <Navigate to="/login" replace />}>
+        <Route path="/" element={authState.isAuthenticated ? <Layout role={authState.role} username={authState.username} /> : <Navigate to="/login" replace />}>
           <Route index element={(authState.role === 'supervisor_ruta' || authState.role === 'supervisor' || authState.role === 'supervisor_entrada') ? <Dashboard /> : <DashboardConductor />} />
           <Route path="registro" element={<RegistroViaje />} />
           <Route path="perfil" element={<PerfilUsuario />} />

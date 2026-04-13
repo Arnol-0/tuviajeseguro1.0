@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { Moon, Sun, Bell } from 'lucide-react';
 
-export default function Layout({ role }) {
+export default function Layout({ role, username }) {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -31,14 +31,14 @@ export default function Layout({ role }) {
             <button className="icon-btn" onClick={() => setIsDark(!isDark)}>
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <div className="profile-avatar" style={{ width: '40px', height: '40px', fontSize: '1rem', cursor: 'pointer' }}>
-              A
+            <div className="profile-avatar" style={{ width: '40px', height: '40px', fontSize: '1rem', cursor: 'pointer', textTransform: 'uppercase' }}>
+              {username ? username.charAt(0) : 'U'}
             </div>
           </div>
         </header>
         
         <div className="page-transition">
-          <Outlet />
+          <Outlet context={{ role, username }} />
         </div>
       </main>
     </div>
