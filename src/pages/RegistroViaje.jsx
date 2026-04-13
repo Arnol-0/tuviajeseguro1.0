@@ -1,17 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { database } from '../firebase';
 import { ref, get, set, child } from 'firebase/database';
-import { Send, FileText, MapPin, Package, User, Clock } from 'lucide-react';
+import { Send, FileText, MapPin, Package, User, Clock, CheckCircle } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { renderToString } from 'react-dom/server';
+
+// Fix icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+});
+
+// Componente para capturar doble click o click normal en mapa
+function MapPickerHandler({ onLocationSelect }) {
+  useMapEvents({
+    click: (e) => {
+      onLocationSelect(e.latlng);
+    }
+  });
+  return null;
+}
 
 export default function RegistroViaje() {
   const [drivers, setDrivers] = useState([]);
   const [formData, setFormData] = useState({
     driver: '',
-    origin: '',
-    destination: '',
     cargo: '',
     weight: ''
   });
+  const [originCoords, setOriginCoords] = useState(null);
+  const [destCoords, setDestCoords] = useState(null);
+  const [selectingMode, setSelectingMode] = useState('origin'); // 'origin' o 'dest'
   const [status, setStatus] = useState({ message: '', type: '' });
 
   useEffect(() => {
@@ -39,31 +62,59 @@ export default function RegistroViaje() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus({ message: 'Asignando ruta...', type: 'info' });
+    setStatus({ message: 'Calculando ruta...', type: 'info' });
     
     if (!formData.driver) {
-      setStatus({ message: 'Selecciona un chofer primero', type: 'error' });
+      setStatus({ message: 'Selecciona un chofer primero.', type: 'error' });
+      return;
+    }
+    if (!originCoords || !destCoords) {
+      setStatus({ message: 'Debes hacer clic en el mapa para fijar Origen y Destino.', type: 'error' });
       return;
     }
 
     try {
+      let routeGeometry = null;
+      let estimatedTime = 'Sin cálculo';
+      let distanceKm = '0';
+      
+      // Conectar a API real de enrutamiento OSRM
+      const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${originCoords[1]},${originCoords[0]};${destCoords[1]},${destCoords[0]}?overview=full&geometries=geojson`);
+      const data = await resp.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        routeGeometry = route.geometry.coordinates; // [[lng, lat], ...]
+        const durMins = Math.round(route.duration / 60);
+        
+        estimatedTime = durMins > 60 ? `${Math.floor(durMins/60)} h ${durMins%60} m` : `${durMins} min`;
+        distanceKm = (route.distance / 1000).toFixed(1);
+      }
+
       const tripData = {
-        origin: formData.origin,
-        destination: formData.destination,
+        origin: 'Punto Geo-Asignado (A)',
+        destination: 'Punto Geo-Asignado (B)',
+        originCoords,
+        destCoords,
         cargo: formData.cargo,
         weight: formData.weight,
-        startTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' }),
-        status: 'Pendiente'
+        startTime: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute:'2-digit' }),
+        status: 'Pendiente',
+        estimatedTime,
+        distanceKm,
+        routeGeometry
       };
       
-      // Guardar el currentTrip dentro del nodo de ese chofer específico
       await set(ref(database, `users/${formData.driver}/currentTrip`), tripData);
       
-      setStatus({ message: `Ruta asignada exitosamente a ${formData.driver}`, type: 'success' });
-      setFormData({ driver: '', origin: '', destination: '', cargo: '', weight: '' });
+      setStatus({ message: `Ruta de ${distanceKm} km calculada y asignada exitosamente a ${formData.driver}`, type: 'success' });
+      setFormData({ driver: '', cargo: '', weight: '' });
+      setOriginCoords(null);
+      setDestCoords(null);
+      setSelectingMode('origin');
     } catch (e) {
       console.error(e);
-      setStatus({ message: 'Error al asignar la ruta', type: 'error' });
+      setStatus({ message: 'Error de red o geolocalización al calcular ruta.', type: 'error' });
     }
   };
 
@@ -104,30 +155,43 @@ export default function RegistroViaje() {
               </select>
             </div>
 
-            <div className="form-group">
-              <label><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Punto de Origen</label>
-              <input 
-                type="text" 
-                name="origin"
-                className="form-control" 
-                placeholder="Ej. Centro de Distribución Norte" 
-                value={formData.origin}
-                onChange={handleChange}
-                required
-              />
-            </div>
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Fija los puntos en el mapa</label>
+              
+              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                 <button 
+                   type="button" 
+                   onClick={() => setSelectingMode('origin')} 
+                   style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: selectingMode === 'origin' ? '2px solid var(--accent-primary)' : '1px solid #ddd', background: selectingMode === 'origin' ? 'rgba(59, 130, 246, 0.1)' : 'white', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                 >
+                   {originCoords ? <CheckCircle size={18} color="var(--accent-primary)" /> : <MapPin size={18} />}
+                   1. Tocar Origen
+                 </button>
+                 <button 
+                   type="button" 
+                   onClick={() => setSelectingMode('dest')} 
+                   style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: selectingMode === 'dest' ? '2px solid var(--accent-warning)' : '1px solid #ddd', background: selectingMode === 'dest' ? 'rgba(234, 179, 8, 0.1)' : 'white', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                 >
+                   {destCoords ? <CheckCircle size={18} color="var(--accent-warning)" /> : <MapPin size={18} />}
+                   2. Tocar Destino
+                 </button>
+              </div>
 
-            <div className="form-group">
-              <label><MapPin size={16} style={{ verticalAlign: 'text-bottom', marginRight:'4px' }}/> Punto de Destino</label>
-              <input 
-                type="text" 
-                name="destination"
-                className="form-control" 
-                placeholder="Ej. Sucursal Valparaíso" 
-                value={formData.destination}
-                onChange={handleChange}
-                required
-              />
+              <div style={{ height: '350px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.1)' }}>
+                <MapContainer center={[-33.4569, -70.6483]} zoom={12} style={{ height: '100%', width: '100%' }}>
+                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                   <MapPickerHandler onLocationSelect={(latlng) => {
+                      if (selectingMode === 'origin') {
+                        setOriginCoords([latlng.lat, latlng.lng]);
+                        setSelectingMode('dest'); // Auto-switch to dest after origin
+                      } else {
+                        setDestCoords([latlng.lat, latlng.lng]);
+                      }
+                   }} />
+                   {originCoords && <Marker position={originCoords}><Popup>Origen Asignado</Popup></Marker>}
+                   {destCoords && <Marker position={destCoords}><Popup>Destino Asignado</Popup></Marker>}
+                </MapContainer>
+              </div>
             </div>
 
             <div className="form-group">
@@ -164,7 +228,7 @@ export default function RegistroViaje() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-            <button type="button" className="btn btn-outline" onClick={() => setFormData({ driver: '', origin: '', destination: '', cargo: '', weight: '' })}>Limpiar Formulario</button>
+            <button type="button" className="btn btn-outline" onClick={() => { setFormData({ driver: '', cargo: '', weight: '' }); setOriginCoords(null); setDestCoords(null); setSelectingMode('origin'); }}>Reiniciar Posiciones</button>
             <button type="submit" className="btn btn-primary">
               <Send size={18} />
               Asignar Ruta GPS

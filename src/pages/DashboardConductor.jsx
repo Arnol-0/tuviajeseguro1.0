@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Route, Clock, Navigation, MapPin, Play, Truck, Info } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { renderToString } from 'react-dom/server';
@@ -185,7 +185,7 @@ export default function DashboardConductor() {
            
            {/* ETA Floating Panel */}
            <div style={{ position: 'absolute', top: '85px', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '0.5rem 1.5rem', borderRadius: '30px', fontWeight: 700, zIndex: 10000, display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
-             <Clock size={18} /> ETA: 1 hr 45 min
+             <Clock size={18} /> ETA: {currentTrip.estimatedTime || 'N/A'}
            </div>
 
            {/* Fullscreen Map Area */}
@@ -194,6 +194,24 @@ export default function DashboardConductor() {
                 <TileLayer
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                 />
+                
+                {/* Trazado OSRM */}
+                {currentTrip.routeGeometry && (
+                  <Polyline 
+                    positions={currentTrip.routeGeometry.map(c => [c[1], c[0]])} 
+                    color="#3b82f6" 
+                    weight={6} 
+                    opacity={0.8} 
+                  />
+                )}
+                {/* Marcadores Carga y Descarga */}
+                {currentTrip.originCoords && (
+                 <Marker position={currentTrip.originCoords}><Popup>Punto de Partida</Popup></Marker>
+                )}
+                {currentTrip.destCoords && (
+                 <Marker position={currentTrip.destCoords}><Popup>Punto de Entrega</Popup></Marker>
+                )}
+
                 <Marker position={liveLocation} icon={customTruckIcon}>
                   <Popup>
                     <strong>Mi Camión</strong><br/>Lat: {liveLocation[0].toFixed(4)} <br/>En ruta.
@@ -210,7 +228,7 @@ export default function DashboardConductor() {
                 <div style={{ width: '1px', height: '40px', background: '#e2e8f0' }}></div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Restante</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-primary)' }}>18 <span style={{fontSize: '0.8rem'}}>km</span></div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{currentTrip.distanceKm || '...'} <span style={{fontSize: '0.8rem'}}>km</span></div>
                 </div>
               </div>
            </div>
