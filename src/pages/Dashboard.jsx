@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowDownRight, ArrowUpRight, Activity, Truck, Map as MapIcon, X, ScanFace, FileText } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Activity, Truck, Map as MapIcon, X, ScanFace, FileText, Wifi, Unlock } from 'lucide-react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { database } from '../firebase';
 import { ref, onValue, set, push } from 'firebase/database';
+
+// Credenciales ThingSpeak
+const TS_CHANNEL_ID = "3334794";
+const TS_READ_KEY = "643DI7HQHRTOMVG0";
+// Reemplazar cuando se tenga el Write Key
+const TS_WRITE_KEY = "INGRESA_TU_WRITE_API_KEY_AQUI";
 
 /**
  * Componente principal del Panel de Control (Dashboard) del Supervisor/Portería.
@@ -20,6 +26,10 @@ export default function Dashboard() {
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [recordType, setRecordType] = useState('Entrada');
   const [formData, setFormData] = useState({ patent: '', driver: '', cargo: '' });
+
+  // Estado IoT ThingSpeak
+  const [lastEntryId, setLastEntryId] = useState(null);
+  const [iotAlert, setIotAlert] = useState(null);
 
   // Estado que manejará datos en tiempo real desde Firebase.
   const [trips, setTrips] = useState([]);
@@ -40,6 +50,40 @@ export default function Dashboard() {
 
     return () => unsubscribe();
   }, []);
+
+  // Polling de IoT ThingSpeak
+  useEffect(() => {
+    // Si no es rol relacionado a portería, no necesitamos consumir la API constantemente
+    if (role !== 'supervisor_entrada' && role !== 'supervisor') return;
+
+    const pollThingSpeak = async () => {
+      try {
+        const res = await fetch(`https://api.thingspeak.com/channels/${TS_CHANNEL_ID}/feeds.json?api_key=${TS_READ_KEY}&results=1`);
+        const data = await res.json();
+        if (data.feeds && data.feeds.length > 0) {
+          const latest = data.feeds[0];
+          
+          if (lastEntryId !== null && latest.entry_id > lastEntryId) {
+            // Llegó un nuevo vehículo detectado por el IoT
+            setIotAlert({
+              patent: latest.field1 || 'DESCONOCIDA',
+              weight: latest.field2 || 'N/A',
+              feedId: latest.entry_id,
+              time: new Date(latest.created_at).toLocaleTimeString()
+            });
+          }
+          setLastEntryId(latest.entry_id);
+        }
+      } catch (e) {
+        console.error('Error sincronizando con IoT ThingSpeak:', e);
+      }
+    };
+
+    const intervalId = setInterval(pollThingSpeak, 10000); // Revisar cada 10s
+    pollThingSpeak(); // Fetch inicial
+
+    return () => clearInterval(intervalId);
+  }, [lastEntryId, role]);
 
   const handleOpenRecord = (type) => {
     setRecordType(type);
@@ -77,6 +121,27 @@ export default function Dashboard() {
     // Cerrar y limpiar
     setShowRecordModal(false);
     setFormData({ patent: '', driver: '', cargo: '' });
+  };
+
+  const handleOpenGateIoT = async () => {
+    try {
+      // Mandamos señal al field3 para que el Arduino la lea y abra la puerta electromecánica
+      // Nota: Fallará si la Write Key es incorrecta, pero el concepto se implementa.
+      fetch(`https://api.thingspeak.com/update?api_key=${TS_WRITE_KEY}&field3=1`).catch(() => {});
+      
+      // Limpiamos la alerta y precargamos el formulario
+      setFormData({
+        patent: iotAlert.patent,
+        driver: 'Conductor por Confirmar',
+        cargo: `Leído IOT - Peso: ${iotAlert.weight}kg`
+      });
+      setRecordType('Salida');
+      setIotAlert(null);
+      setShowRecordModal(true); 
+
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   // Contadores para KPIs
@@ -319,6 +384,42 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* --- MODAL DE ALERTA IOT (NUEVO VEHÍCULO EN BARRERA) --- */}
+      {iotAlert && (
+         <div className="modal-overlay">
+           <div className="modal-content animate-slide-up" style={{ padding: 0, overflow: 'hidden', border: '2px solid #3b82f6', maxWidth: '400px' }}>
+              <div style={{ background: '#3b82f6', color: 'white', padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                 <Wifi size={24} className="animate-pulse" />
+                 <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>¡SEÑAL IOT RECIBIDA!</h2>
+              </div>
+              
+              <div style={{ padding: '1.5rem', textAlign: 'center' }}>
+                 <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-secondary)' }}>Un camión está en la barrera y solicita autorización de paso ({iotAlert.time}).</p>
+                 
+                 <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>Patente Capturada</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', letterSpacing: '2px', margin: '0.5rem 0' }}>{iotAlert.patent}</div>
+                    
+                    <hr style={{ borderTop: '1px dashed #cbd5e1', margin: '1rem 0', borderBottom: 'none' }}/>
+
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>Peso Medido</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b', margin: '0.5rem 0' }}>{iotAlert.weight} <span style={{fontSize: '1rem'}}>kg</span></div>
+                 </div>
+
+                 <div style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+                    <button onClick={handleOpenGateIoT} className="btn" style={{ background: '#10b981', color: 'white', border: 'none', padding: '1rem', fontSize: '1.05rem', fontWeight: 700, display: 'flex', justifyContent: 'center', gap: '0.5rem', boxShadow: '0 8px 25px rgba(16,185,129,0.3)' }}>
+                      <Unlock size={20} /> Abrir Puerta Eléctrica (IoT)
+                    </button>
+                    <button onClick={() => setIotAlert(null)} className="btn btn-outline" style={{ justifyContent: 'center', padding: '0.85rem' }}>
+                      Ignorar / Cerrar
+                    </button>
+                 </div>
+              </div>
+           </div>
+         </div>
+      )}
+
     </div>
   );
 }
