@@ -104,8 +104,36 @@ export default function DashboardConductor() {
     };
   }, [isTripActive, username]);
 
+  // Fuerza a Leaflet a reajustar su tamaño cuando pasamos a Fullscreen
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+    return () => clearTimeout(timeout);
+  }, [isTripActive]);
+
+  const rootContainerStyle = isTripActive ? {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    zIndex: 9999,
+    borderRadius: 0,
+    overflow: 'hidden',
+    background: 'var(--bg-primary)'
+  } : {
+    position: 'relative',
+    width: '100%',
+    height: 'calc(100vh - 120px)',
+    minHeight: '600px', // Fallback for small screens
+    borderRadius: '24px',
+    overflow: 'hidden',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
+  };
+
   return (
-    <div className="animate-fade-in" style={{ position: 'relative', width: '100%', height: 'calc(100vh - 40px)', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+    <div className="animate-fade-in" style={rootContainerStyle}>
       
       {/* CAPA DEL MAPA (Siempre de fondo) */}
       <MapContainer center={liveLocation} zoom={13} zoomControl={false} style={{ height: '100%', width: '100%', zIndex: 1 }}>
@@ -201,7 +229,7 @@ export default function DashboardConductor() {
         {currentTrip && isTripActive && (
           <>
             {/* Cabecera / Botón Finalizar */}
-            <div style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', pointerEvents: 'auto' }}>
+            <div style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', pointerEvents: 'auto', zIndex: 1000 }}>
                <button onClick={() => setIsTripActive(false)} style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', border: 'none', padding: '0.75rem 1.25rem', borderRadius: '50px', fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', boxShadow: '0 8px 20px rgba(0,0,0,0.1)' }}>
                  <CheckCircle size={20} />
                  Finalizar
@@ -209,20 +237,20 @@ export default function DashboardConductor() {
             </div>
 
             {/* Pill de ETA Flotante Arriba al Medio */}
-            <div style={{ position: 'absolute', top: '1.5rem', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', background: 'rgba(16, 185, 129, 0.95)', backdropFilter: 'blur(10px)', color: 'white', padding: '0.75rem 1.75rem', borderRadius: '50px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)', fontSize: '1.05rem', whiteSpace: 'nowrap' }}>
-              <Clock size={20} /> ETA: {currentTrip.estimatedTime || 'N/A'}
+            <div style={{ position: 'absolute', top: '1.5rem', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', background: 'rgba(16, 185, 129, 0.95)', backdropFilter: 'blur(10px)', color: 'white', padding: '0.75rem 1.2rem', borderRadius: '50px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)', fontSize: '0.9rem', whiteSpace: 'nowrap', zIndex: 1000 }}>
+              <Clock size={16} /> ETA: {currentTrip.estimatedTime || 'N/A'}
             </div>
 
             {/* Panel de Estadísticas Inferior */}
-            <div className="animate-slide-up" style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', width: 'calc(100% - 3rem)', maxWidth: '500px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(20px)', borderRadius: '32px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', border: '1px solid rgba(255,255,255,1)' }}>
+            <div className="animate-slide-up" style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', width: 'calc(100% - 2rem)', maxWidth: '500px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(20px)', borderRadius: '32px', padding: '1.5rem 1rem', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', border: '1px solid rgba(255,255,255,1)', zIndex: 1000 }}>
               <div style={{ textAlign: 'center', flex: 1 }}>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '0.25rem' }}>Velocidad</div>
-                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{speedKn} <span style={{fontSize: '1rem', color: '#64748b', fontWeight: 700}}>km/h</span></div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '0.25rem' }}>Velocidad</div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{speedKn} <span style={{fontSize: '0.9rem', color: '#64748b', fontWeight: 700}}>km/h</span></div>
               </div>
-              <div style={{ width: '2px', height: '60px', background: '#e2e8f0', borderRadius: '2px' }}></div>
+              <div style={{ width: '2px', height: '50px', background: '#e2e8f0', borderRadius: '2px' }}></div>
               <div style={{ textAlign: 'center', flex: 1 }}>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '0.25rem' }}>Restante</div>
-                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{currentTrip.distanceKm || '...'} <span style={{fontSize: '1rem', fontWeight: 700}}>km</span></div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '0.25rem' }}>Restante</div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{currentTrip.distanceKm || '...'} <span style={{fontSize: '0.9rem', fontWeight: 700}}>km</span></div>
               </div>
             </div>
           </>
