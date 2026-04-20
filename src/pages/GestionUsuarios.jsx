@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { database } from '../firebase';
 import { ref, set, get, child, onValue, remove } from 'firebase/database';
-import { UserPlus, Save, Shield, User, Users, Trash2 } from 'lucide-react';
+import { UserPlus, Save, User, Users, Trash2 } from 'lucide-react';
 
 export default function GestionUsuarios() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [correo, setCorreo] = useState('');
+  const [numero, setNumero] = useState('');
   const [role, setRole] = useState('conductor');
   const [status, setStatus] = useState({ message: '', type: '' });
   const [loading, setLoading] = useState(false);
@@ -44,10 +47,19 @@ export default function GestionUsuarios() {
       if (snapshot.exists()) {
         setStatus({ message: 'El usuario ya existe en el sistema.', type: 'error' });
       } else {
-        await set(ref(database, `users/${userKey}`), { password, role });
+        await set(ref(database, `users/${userKey}`), { 
+          password, 
+          role, 
+          nombre, 
+          correo, 
+          numero 
+        });
         setStatus({ message: 'Usuario creado con éxito.', type: 'success' });
         setUsername('');
         setPassword('');
+        setNombre('');
+        setCorreo('');
+        setNumero('');
       }
     } catch (error) {
       console.error(error);
@@ -69,35 +81,35 @@ export default function GestionUsuarios() {
   };
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto', padding: '1rem' }}>
+    <div className="animate-fade-in" style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem' }}>
       <div className="header-title" style={{ marginBottom: '2rem' }}>
         <h1>Gestión de Usuarios</h1>
-        <p>Crea cuentas para choferes y otros supervisores del sistema.</p>
+        <p>Crea cuentas para choferes y otros supervisores del sistema, completando su perfil integral.</p>
       </div>
 
       <div className="card">
         <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', fontSize: '1.25rem' }}>
           <UserPlus size={22} color="var(--accent-primary)" />
-          Nuevo Registro
+          Nuevo Registro de Personal
         </h2>
         
         <form onSubmit={handleCreate}>
-          <div className="form-grid">
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ID de Usuario / Username</label>
+          {/* PRIMERA FILA: CREDENCIALES (Separados para claridad) */}
+          <div className="form-grid" style={{ marginBottom: '1.5rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ID de Usuario (Acceso)</label>
               <input 
                 type="text" 
                 className="login-input" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ej: juan_perez"
+                placeholder="Ej: jperez"
                 required 
                 style={{ padding: '0.75rem', width: '100%', border: '1px solid #cbd5e1', borderRadius: 'var(--radius-md)' }}
               />
             </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Contraseña</label>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Contraseña de Sistema</label>
               <input 
                 type="password" 
                 className="login-input" 
@@ -110,8 +122,47 @@ export default function GestionUsuarios() {
             </div>
           </div>
 
+          <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '1.5rem 0' }} />
+
+          {/* SEGUNDA FILA: DATOS PERFIL */}
+          <div className="form-grid" style={{ marginBottom: '1.5rem' }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Nombre Completo</label>
+              <input 
+                type="text" 
+                className="login-input" 
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Juan Pérez Silva"
+                style={{ padding: '0.75rem', width: '100%', border: '1px solid #cbd5e1', borderRadius: 'var(--radius-md)' }}
+              />
+            </div>
+            <div>
+               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Correo Electrónico</label>
+               <input 
+                 type="email" 
+                 className="login-input" 
+                 value={correo}
+                 onChange={(e) => setCorreo(e.target.value)}
+                 placeholder="juan.perez@empresa.com"
+                 style={{ padding: '0.75rem', width: '100%', border: '1px solid #cbd5e1', borderRadius: 'var(--radius-md)' }}
+               />
+            </div>
+            <div>
+               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Número de Teléfono</label>
+               <input 
+                 type="tel" 
+                 className="login-input" 
+                 value={numero}
+                 onChange={(e) => setNumero(e.target.value)}
+                 placeholder="+56 9 1234 5678"
+                 style={{ padding: '0.75rem', width: '100%', border: '1px solid #cbd5e1', borderRadius: 'var(--radius-md)' }}
+               />
+            </div>
+          </div>
+
           <div style={{ marginBottom: '2rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Rol Operativo</label>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Rol Operativo (Asignación)</label>
             <select 
               value={role} 
               onChange={(e) => setRole(e.target.value)}
@@ -132,7 +183,7 @@ export default function GestionUsuarios() {
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '1rem' }} disabled={loading}>
             {loading ? 'Procesando...' : (
               <>
-                <Save size={20} /> Crear Cuenta
+                <Save size={20} /> Guardar Ficha y Crear Cuenta
               </>
             )}
           </button>
@@ -142,7 +193,7 @@ export default function GestionUsuarios() {
       <div className="card" style={{ marginTop: '2rem' }}>
         <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', fontSize: '1.25rem' }}>
           <Users size={22} color="var(--accent-secondary)" />
-          Usuarios Registrados
+          Personal Registrado
         </h2>
         
         <div className="table-container">
@@ -150,6 +201,7 @@ export default function GestionUsuarios() {
             <thead>
               <tr>
                 <th>Usuario</th>
+                <th>Nombre</th>
                 <th>Rol Asignado</th>
                 <th style={{ textAlign: 'right' }}>Acciones</th>
               </tr>
@@ -159,9 +211,10 @@ export default function GestionUsuarios() {
                 usersList.map((usr) => (
                   <tr key={usr.username} className="animate-fade-in">
                     <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{usr.username}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{usr.nombre || '-'}</td>
                     <td>
                       <span className={`badge ${usr.role === 'conductor' ? 'badge-blue' : usr.role === 'supervisor_entrada' ? 'badge-warning' : 'badge-success'}`}>
-                        {usr.role === 'conductor' ? 'Conductor' : usr.role === 'supervisor_entrada' ? 'Portería (Entrada/Salida)' : 'Supervisor (Rutas & GPS)'}
+                        {usr.role === 'conductor' ? 'Conductor' : usr.role === 'supervisor_entrada' ? 'Portería' : 'Supervisor GPS'}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
@@ -178,7 +231,7 @@ export default function GestionUsuarios() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="3" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)' }}>
+                  <td colSpan="4" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)' }}>
                     No hay usuarios registrados en el sistema.
                   </td>
                 </tr>

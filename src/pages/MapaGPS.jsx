@@ -38,8 +38,8 @@ function LocationMarker({ position }) {
     <Marker position={position}>
       <Popup>
         <div style={{ textAlign: 'center' }}>
-          <strong>Tu ubicación actual</strong><br/>
-          Centro de Supervisión
+          <strong>Casa Central - Temuco</strong><br/>
+          (Tu ubicación actual)
         </div>
       </Popup>
     </Marker>
@@ -148,8 +148,8 @@ export default function MapaGPS() {
       
       {/* CAPA Base del MAPA */}
       <MapContainer 
-        center={position || [-33.4489, -70.6693]} 
-        zoom={11} 
+        center={position || [-38.7359, -72.5904]} 
+        zoom={12} 
         style={{ height: '100%', width: '100%', zIndex: 1 }}
         zoomControl={false} // Quitamos control de zoom nativo para limpiar UI
       >
