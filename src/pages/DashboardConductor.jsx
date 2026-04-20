@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Route, Clock, Navigation, MapPin, Play, Truck, Info } from 'lucide-react';
+import { Package, Route, Clock, Navigation, MapPin, Play, Truck, Info, CheckCircle } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -19,34 +19,42 @@ L.Icon.Default.mergeOptions({
 // Crear icon de camión personalizado
 const truckIconHtml = renderToString(<Truck size={24} color="#ffffff" />);
 const customTruckIcon = new L.DivIcon({
-  html: `<div style="background-color: #3b82f6; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid white;">${truckIconHtml}</div>`,
+  html: `<div style="background-color: #3b82f6; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.4); border: 3px solid white; transition: all 0.3s ease;">${truckIconHtml}</div>`,
   className: 'dummy-custom-icon',
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-  popupAnchor: [0, -18]
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+  popupAnchor: [0, -22]
 });
 
-// Componente para seguir el camión (centrar el mapa en tiempo real)
-function MapTracker({ centerPos }) {
+// Componente para manejar la vista del mapa
+function MapController({ centerPos, isTripActive, currentTrip }) {
   const map = useMap();
+  
   useEffect(() => {
-    if (centerPos) {
-      map.setView(centerPos, map.getZoom(), { animate: true });
+    if (!currentTrip || isTripActive) {
+      if (centerPos) {
+        map.setView(centerPos, 15, { animate: true, duration: 1 });
+      }
+    } else if (currentTrip && !isTripActive && currentTrip.routeGeometry) {
+       // Si hay ruta pero no está activo, ajustar el mapa para mostrar toda la ruta
+       const lats = currentTrip.routeGeometry.map(c => c[1]);
+       const lngs = currentTrip.routeGeometry.map(c => c[0]);
+       const bounds = L.latLngBounds(
+         L.latLng(Math.min(...lats), Math.min(...lngs)),
+         L.latLng(Math.max(...lats), Math.max(...lngs))
+       );
+       map.fitBounds(bounds, { padding: [50, 50], animate: true, duration: 1 });
     }
-  }, [centerPos, map]);
+  }, [centerPos, isTripActive, currentTrip, map]);
+  
   return null;
 }
 
-/**
- * Componente Panel del Conductor (DashboardConductor).
- * Vista enfocada en la información relevante para un chofer,
- * mostrando el estado de la carga actual y la ruta asignada.
- */
 export default function DashboardConductor() {
   const { username } = useOutletContext();
   const [isTripActive, setIsTripActive] = useState(false);
   const [currentTrip, setCurrentTrip] = useState(null);
-  const [liveLocation, setLiveLocation] = useState([-33.4350, -70.6300]); // Fallback initial
+  const [liveLocation, setLiveLocation] = useState([-33.4350, -70.6300]); 
   const [speedKn, setSpeedKn] = useState(0);
 
   // Leer estado del viaje desde Firebase Realtime en vivo
@@ -58,15 +66,16 @@ export default function DashboardConductor() {
         setCurrentTrip(snapshot.val());
       } else {
         setCurrentTrip(null);
+        setIsTripActive(false);
       }
     });
     return () => unsubscribe();
   }, [username]);
 
-  // Rastreo de GPS local mientras isTripActive sea verdadero
+  // Rastreo de GPS local mientras isTripActive sea verdadero o para ubicación inicial
   useEffect(() => {
     let watchId;
-    if (isTripActive && navigator.geolocation && username) {
+    if (navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const lat = pos.coords.latitude;
@@ -75,14 +84,18 @@ export default function DashboardConductor() {
           
           setLiveLocation([lat, lng]);
           setSpeedKn(userSpeed);
-          // Guardar en Firebase para que el administrador lo vea en MapaGPS
-          set(ref(database, `users/${username}/location`), { lat, lng });
+          
+          if (isTripActive && username) {
+            set(ref(database, `users/${username}/location`), { lat, lng });
+          }
         },
         (err) => console.warn('Error GPS:', err),
         { enableHighAccuracy: true }
       );
-    } else if (!isTripActive && username) {
-      // Limpiar ubicación de firebase cuando finaliza el viaje
+    }
+    
+    // Limpiar ubicación al desactivar
+    if (!isTripActive && username) {
       set(ref(database, `users/${username}/location`), null);
     }
 
@@ -91,167 +104,130 @@ export default function DashboardConductor() {
     };
   }, [isTripActive, username]);
 
-  if (!currentTrip) {
-    return (
-      <div className="animate-fade-in" style={{ textAlign: 'center', marginTop: '6rem' }}>
-        <div style={{ background: 'var(--bg-secondary)', width: '100px', height: '100px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: 'var(--text-secondary)' }}>
-          <Info size={40} />
-        </div>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Viaje No Asignado</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto' }}>No tienes ninguna ruta u orden de envío pendiente en este momento. Por favor, contacta con tu supervisor de logística o espera la pronta asignación.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="animate-fade-in">
-      {/* --- ENCABEZADO --- */}
-      <div className="header-title" style={{ marginBottom: '2rem' }}>
-        <h1>Panel del Conductor</h1>
-        <p>Resumen de tu viaje actual e información de la carga.</p>
-      </div>
+    <div className="animate-fade-in" style={{ position: 'relative', width: '100%', height: 'calc(100vh - 40px)', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+      
+      {/* CAPA DEL MAPA (Siempre de fondo) */}
+      <MapContainer center={liveLocation} zoom={13} zoomControl={false} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        />
+        <MapController centerPos={liveLocation} isTripActive={isTripActive} currentTrip={currentTrip} />
+        
+        {/* Trazado de ruta */}
+        {currentTrip && currentTrip.routeGeometry && (
+          <Polyline 
+            positions={currentTrip.routeGeometry.map(c => [c[1], c[0]])} 
+            color="#3b82f6" 
+            weight={6} 
+            opacity={0.8} 
+          />
+        )}
+        
+        {/* Marcadores Carga y Descarga */}
+        {currentTrip && currentTrip.originCoords && (
+          <Marker position={currentTrip.originCoords}><Popup>Punto de Partida: {currentTrip.origin}</Popup></Marker>
+        )}
+        {currentTrip && currentTrip.destCoords && (
+          <Marker position={currentTrip.destCoords}><Popup>Punto de Entrega: {currentTrip.destination}</Popup></Marker>
+        )}
 
-      {/* --- TARJETAS DE INFORMACIÓN DEL VIAJE --- */}
-      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
-        {/* Métrica: Tipo de Cargamento */}
-         <div className="stat-card">
-          <div className="stat-icon icon-blue">
-            <Package size={24} />
-          </div>
-          <div className="stat-info">
-            <h3>Cargamento</h3>
-            <div className="value" style={{ fontSize: '1.25rem' }}>{currentTrip.cargo}</div>
-          </div>
-        </div>
+        {/* Camión o Usuario Actual */}
+        <Marker position={liveLocation} icon={customTruckIcon}>
+          <Popup>
+            <strong>Mi Camión</strong><br/>
+            Lat: {liveLocation[0].toFixed(4)}, Lng: {liveLocation[1].toFixed(4)}<br/>
+            {isTripActive ? 'En ruta.' : 'Esperando iniciar viaje.'}
+          </Popup>
+        </Marker>
+      </MapContainer>
 
-        {/* Métrica: Peso Total de la carga */}
-        <div className="stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
-            <Route size={24} />
+      {/* OVERLAYS UI (Encima del mapa) */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 1000 }}>
+        
+        {/* ESTADO: SIN VIAJE ASIGNADO */}
+        {!currentTrip && (
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(16px)', padding: '2.5rem 2rem', borderRadius: '32px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '350px', width: '90%', border: '1px solid rgba(255,255,255,0.5)' }}>
+            <div style={{ background: 'rgba(59, 130, 246, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: '#3b82f6' }}>
+              <Info size={40} />
+            </div>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '0.75rem', color: '#0f172a', fontWeight: '700' }}>Viaje No Asignado</h2>
+            <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.5 }}>Tu mapa está activo, pero no tienes ninguna ruta u orden de envío pendiente.<br/><br/>Esperando asignación de supervisor.</p>
           </div>
-          <div className="stat-info">
-            <h3>Peso Total</h3>
-            <div className="value">{currentTrip.weight}</div>
-          </div>
-        </div>
+        )}
 
-        {/* Métrica: Tiempo de Viaje Estimado */}
-        <div className="stat-card">
-          <div className="stat-icon icon-orange">
-            <Clock size={24} />
-          </div>
-          <div className="stat-info">
-            <h3>Tiempo de Viaje</h3>
-            <div className="value">{currentTrip.estimatedTime}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* --- SECCIÓN DE RUTA ASIGNADA (NORMAL) --- */}
-      <div style={{ maxWidth: '800px', margin: '0 auto', transition: 'all 0.3s ease' }}>
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <h2 className="card-title" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Navigation size={20} color="var(--accent-primary)"/> Ruta Asignada
-          </h2>
-          
-          <div style={{ position: 'relative', paddingLeft: '1.5rem', marginTop: '1.5rem' }}>
-            {/* Línea conectora entre los puntos */}
-            <div style={{ position: 'absolute', top: 0, bottom: 0, left: '7px', width: '2px', background: 'var(--accent-primary)', opacity: 0.2 }}></div>
-            
-            {/* Punto A: Origen */}
-            <div style={{ position: 'relative', marginBottom: '2rem' }}>
-               <div style={{ position: 'absolute', left: '-1.5rem', top: '2px', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--accent-primary)', border: '4px solid var(--bg-secondary)' }}></div>
-               <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Punto A - Origen ({currentTrip.startTime})</h4>
-               <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>{currentTrip.origin}</p>
+        {/* ESTADO: VIAJE ASIGNADO (INACTIVO) */}
+        {currentTrip && !isTripActive && (
+          <div className="animate-slide-up" style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(20px)', padding: '1.5rem', borderRadius: '28px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', width: 'calc(100% - 2rem)', maxWidth: '400px', border: '1px solid rgba(255,255,255,1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{ background: '#3b82f6', color: 'white', padding: '0.6rem', borderRadius: '14px', boxShadow: '0 4px 10px rgba(59,130,246,0.3)' }}>
+                <Navigation size={22} />
+              </div>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>Nueva Ruta Asignada</h2>
             </div>
 
-            {/* Punto B: Destino */}
-            <div style={{ position: 'relative' }}>
-               <div style={{ position: 'absolute', left: '-1.5rem', top: '2px', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--accent-warning)', border: '4px solid var(--bg-secondary)' }}></div>
-               <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Punto B - Destino</h4>
-               <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>{currentTrip.destination}</p>
-            </div>
-          </div>
-          
-          <button className="btn btn-primary" onClick={() => setIsTripActive(true)} style={{ width: '100%', marginTop: '2rem', justifyContent: 'center', padding: '1rem', fontSize: '1.1rem' }}>
-            <Play size={20} />
-            Entrar en Modo Viaje (GPS)
-          </button>
-        </div>
-      </div>
-
-      {/* --- OVERLAY PANTALLA COMPLETA (EXPERIENCIA TIPO WAZE) --- */}
-      {isTripActive && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--bg-primary)', zIndex: 9999, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease-out' }}>
-           {/* Navigation App Header */}
-           <div style={{ padding: '1.25rem 1rem', background: '#0f172a', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-             <div style={{ flex: 1 }}>
-                <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                  <Navigation size={18} color="#3b82f6" /> Viaje en Curso
-                </h2>
-                <p style={{ margin: '0.25rem 0 0 0', opacity: 0.7, fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  A: {currentTrip.destination}
-                </p>
-             </div>
-             <button onClick={() => setIsTripActive(false)} style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.5)', color: '#ef4444', padding: '0.6rem 1.25rem', borderRadius: '50px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}>
-               Terminar
-             </button>
-           </div>
-           
-           {/* ETA Floating Panel */}
-           <div style={{ position: 'absolute', top: '85px', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '0.5rem 1.5rem', borderRadius: '30px', fontWeight: 700, zIndex: 10000, display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
-             <Clock size={18} /> ETA: {currentTrip.estimatedTime || 'N/A'}
-           </div>
-
-           {/* Fullscreen Map Area */}
-           <div style={{ flex: 1, position: 'relative' }}>
-              <MapContainer center={liveLocation} zoom={16} zoomControl={false} style={{ height: '100%', width: '100%' }}>
-                <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                />
-                
-                {/* Tracker real time update center */}
-                <MapTracker centerPos={liveLocation} />
-                
-                {/* Trazado OSRM */}
-                {currentTrip.routeGeometry && (
-                  <Polyline 
-                    positions={currentTrip.routeGeometry.map(c => [c[1], c[0]])} 
-                    color="#3b82f6" 
-                    weight={6} 
-                    opacity={0.8} 
-                  />
-                )}
-                {/* Marcadores Carga y Descarga */}
-                {currentTrip.originCoords && (
-                 <Marker position={currentTrip.originCoords}><Popup>Punto de Partida</Popup></Marker>
-                )}
-                {currentTrip.destCoords && (
-                 <Marker position={currentTrip.destCoords}><Popup>Punto de Entrega</Popup></Marker>
-                )}
-
-                <Marker position={liveLocation} icon={customTruckIcon}>
-                  <Popup>
-                    <strong>Mi Camión</strong><br/>Lat: {liveLocation[0].toFixed(4)} <br/>En ruta.
-                  </Popup>
-                </Marker>
-              </MapContainer>
-              
-              {/* Bottom Nav Stats */}
-              <div style={{ position: 'absolute', bottom: '2rem', left: '1rem', right: '1rem', background: 'white', borderRadius: 'var(--radius-lg)', padding: '1.25rem', zIndex: 10000, boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Velocidad</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>{speedKn} <span style={{fontSize: '0.8rem', color: '#64748b'}}>km/h</span></div>
-                </div>
-                <div style={{ width: '1px', height: '40px', background: '#e2e8f0' }}></div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Restante</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#3b82f6' }}>{currentTrip.distanceKm || '...'} <span style={{fontSize: '0.8rem'}}>km</span></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem', background: '#f8fafc', borderRadius: '16px' }}>
+                <Package size={20} color="#3b82f6" />
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Cargamento</div>
+                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{currentTrip.cargo} &bull; <span style={{ color: '#8b5cf6' }}>{currentTrip.weight}</span></div>
                 </div>
               </div>
-           </div>
-        </div>
-      )}
+              
+              <div style={{ position: 'relative', paddingLeft: '1.5rem', marginTop: '0.5rem' }}>
+                 <div style={{ position: 'absolute', left: '7px', top: '8px', bottom: '12px', width: '2px', background: '#e2e8f0' }}></div>
+                 <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
+                    <div style={{ position: 'absolute', left: '-1.5rem', top: '2px', width: '16px', height: '16px', borderRadius: '50%', background: '#3b82f6', border: '4px solid white', boxShadow: '0 0 0 1px #cbd5e1' }}></div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Origen ({currentTrip.startTime})</div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>{currentTrip.origin}</div>
+                 </div>
+                 <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '-1.5rem', top: '2px', width: '16px', height: '16px', borderRadius: '50%', background: '#10b981', border: '4px solid white', boxShadow: '0 0 0 1px #cbd5e1' }}></div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Destino (ETA: {currentTrip.estimatedTime})</div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>{currentTrip.destination}</div>
+                 </div>
+              </div>
+            </div>
+
+            <button onClick={() => setIsTripActive(true)} style={{ width: '100%', background: '#3b82f6', color: 'white', border: 'none', padding: '1.1rem', borderRadius: '20px', fontWeight: 700, fontSize: '1.05rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 8px 20px rgba(59, 130, 246, 0.4)' }}>
+              <Play size={22} fill="white" />
+              Iniciar Viaje
+            </button>
+          </div>
+        )}
+
+        {/* ESTADO: VIAJE ACTIVO (MODO CONDUCCIÓN) */}
+        {currentTrip && isTripActive && (
+          <>
+            {/* Cabecera / Botón Finalizar */}
+            <div style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', pointerEvents: 'auto' }}>
+               <button onClick={() => setIsTripActive(false)} style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', border: 'none', padding: '0.75rem 1.25rem', borderRadius: '50px', fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', boxShadow: '0 8px 20px rgba(0,0,0,0.1)' }}>
+                 <CheckCircle size={20} />
+                 Finalizar
+               </button>
+            </div>
+
+            {/* Pill de ETA Flotante Arriba al Medio */}
+            <div style={{ position: 'absolute', top: '1.5rem', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', background: 'rgba(16, 185, 129, 0.95)', backdropFilter: 'blur(10px)', color: 'white', padding: '0.75rem 1.75rem', borderRadius: '50px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)', fontSize: '1.05rem', whiteSpace: 'nowrap' }}>
+              <Clock size={20} /> ETA: {currentTrip.estimatedTime || 'N/A'}
+            </div>
+
+            {/* Panel de Estadísticas Inferior */}
+            <div className="animate-slide-up" style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', width: 'calc(100% - 3rem)', maxWidth: '500px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(20px)', borderRadius: '32px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', border: '1px solid rgba(255,255,255,1)' }}>
+              <div style={{ textAlign: 'center', flex: 1 }}>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '0.25rem' }}>Velocidad</div>
+                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{speedKn} <span style={{fontSize: '1rem', color: '#64748b', fontWeight: 700}}>km/h</span></div>
+              </div>
+              <div style={{ width: '2px', height: '60px', background: '#e2e8f0', borderRadius: '2px' }}></div>
+              <div style={{ textAlign: 'center', flex: 1 }}>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '0.25rem' }}>Restante</div>
+                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{currentTrip.distanceKm || '...'} <span style={{fontSize: '1rem', fontWeight: 700}}>km</span></div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

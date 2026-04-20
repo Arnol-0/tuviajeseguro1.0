@@ -7,8 +7,8 @@ export default function Sidebar({ role }) {
 
   const handleLogout = () => {
     // Al recargar la ruta base limpiaremos los useState (incluyendo authState) 
-    // y React Router se va a dar cuenta de que no estamos logueados redirigiéndonos a /login.
-    window.location.href = '/login';
+    // y React Router se va a dar cuenta de que no estamos logueados redirigiéndonos a /login internamente.
+    window.location.href = '/';
   };
 
   return (
