@@ -34,14 +34,7 @@ export default function Dashboard() {
         // Obtenemos los valores y los ordenamos para que los más recientes estén arriba (opcional)
         setTrips(Object.values(data).reverse());
       } else {
-        // Mocks por defecto
-        const defaultTrips = {
-          't1': { id: 'V-102', patent: 'LXYZ-45', driver: 'Juan Pérez', type: 'Entrada', time: '08:15 AM', status: 'Completado', cargo: 'Materiales' },
-          't2': { id: 'V-103', patent: 'BHTC-99', driver: 'Carlos Ruiz', type: 'Salida', time: '09:00 AM', status: 'En Ruta', cargo: 'Despacho' },
-          't3': { id: 'V-104', patent: 'WWKK-11', driver: 'Miguel Silva', type: 'Entrada', time: '10:30 AM', status: 'Pendiente', cargo: 'Devolución' },
-          't4': { id: 'V-105', patent: 'RTYU-02', driver: 'Pedro Gómez', type: 'Salida', time: '11:45 AM', status: 'En Ruta', cargo: 'Maquinaria' },
-        };
-        set(ref(database, 'trips'), defaultTrips);
+        setTrips([]);
       }
     });
 
